@@ -42,7 +42,7 @@ dependencies:
 
   
   # Para manejar QR
-  qr_code_scanner: ^4.0.1
+  qr_code_scanner: ^1.0.1
   
 
   # The following adds the Cupertino Icons font to your application.
