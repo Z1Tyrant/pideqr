@@ -32,9 +32,9 @@ dependencies:
     sdk: flutter
 
     # Dependencias para Firebase (Backend)
-  cloud_firestore: ^4.17.5  # Inicialización de Firebase
-  firebase_auth: ^4.16.0  # Autenticación de usuarios
-  firebase_core: ^2.32.0
+  cloud_firestore: ^6.1.0  # Inicialización de Firebase
+  firebase_auth: ^6.1.2  # Autenticación de usuarios
+  firebase_core: ^4.2.1
   flutter_riverpod: ^2.6.1 # Dependencia para Riverpod (Gestión de Estado)
 
   
