@@ -48,12 +48,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       );
 
       // 3. Si es exitoso, volvemos a la pantalla de login/home
+      if (!mounted) return; // <-- CORRECCIÓN APLICADA
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Registro exitoso como ${_selectedRole.toString().split('.').last}.')),
       );
       Navigator.of(context).pop(); 
 
     } catch (e) {
+      if (!mounted) return; // <-- CORRECCIÓN APLICADA
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error al registrar: ${e.toString()}'),
@@ -61,9 +63,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         ),
       );
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) { // <-- CORRECCIÓN ADICIONAL POR BUENA PRÁCTICA
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 

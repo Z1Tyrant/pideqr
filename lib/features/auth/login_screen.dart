@@ -38,6 +38,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     } catch (e) {
       // 3. Manejo de errores y feedback al usuario
+      if (!mounted) return; // <-- CORRECCIÓN APLICADA
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error al iniciar sesión: ${e.toString()}'),

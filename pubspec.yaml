@@ -35,14 +35,14 @@ dependencies:
   cloud_firestore: ^6.1.0  # Inicialización de Firebase
   firebase_auth: ^6.1.2  # Autenticación de usuarios
   firebase_core: ^4.2.1
-  flutter_riverpod: ^2.6.1 # Dependencia para Riverpod (Gestión de Estado)
+  flutter_riverpod: ^3.0.3 # Dependencia para Riverpod (Gestión de Estado)
 
   
   
 
   
   # Para manejar QR
-  qr_code_scanner: ^1.0.1
+  mobile_scanner: ^5.1.1
   
 
   # The following adds the Cupertino Icons font to your application.

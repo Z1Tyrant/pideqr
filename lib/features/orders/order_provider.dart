@@ -9,7 +9,7 @@ import '../../core/models/producto.dart'; // Necesario para la función addItemT
 class Carrito {
   final List<PedidoItem> items;
   // Almacena el ID del locatario actual. Solo se permiten items de un solo locatario.
-  final String? currentLocatarioId; 
+  final String? currentLocatarioId;
 
   Carrito({
     required this.items,
@@ -19,7 +19,7 @@ class Carrito {
   // Cálculo rápido: subtotal de todos los ítems
   double get subtotal => items.fold(0.0, (sum, item) => sum + item.subtotal);
 
-  // Método para crear una copia inmutable del estado (requerido por StateNotifier)
+  // Método para crear una copia inmutable del estado
   Carrito copyWith({
     List<PedidoItem>? items,
     String? currentLocatarioId,
@@ -33,9 +33,11 @@ class Carrito {
 
 // --- 2. Controlador de Lógica (OrderNotifier) ---
 
-class OrderNotifier extends StateNotifier<Carrito> {
-  // Inicializa el estado con un carrito vacío.
-  OrderNotifier() : super(Carrito(items: []));
+class OrderNotifier extends Notifier<Carrito> {
+  @override
+  Carrito build() {
+    return Carrito(items: []);
+  }
 
   // Función para añadir o actualizar un producto en el carrito
   void addItemToCart({
@@ -43,7 +45,8 @@ class OrderNotifier extends StateNotifier<Carrito> {
     required int quantity,
   }) {
     // 1. Verificar si hay items de otro locatario
-    if (state.currentLocatarioId != null && state.currentLocatarioId != producto.locatarioId) {
+    if (state.currentLocatarioId != null &&
+        state.currentLocatarioId != producto.locatarioId) {
       // Manejar esto como un error o una advertencia en la UI
       throw Exception('El carrito ya contiene productos de otro locatario.');
     }
@@ -64,7 +67,7 @@ class OrderNotifier extends StateNotifier<Carrito> {
         quantity: existingItem.quantity + quantity, // Aumentar cantidad
       );
       updatedItems[existingIndex] = newItem;
-      
+
       state = state.copyWith(items: updatedItems);
     } else {
       // Ítem nuevo: añadir al carrito
@@ -83,10 +86,12 @@ class OrderNotifier extends StateNotifier<Carrito> {
 
   // Función para eliminar un producto del carrito
   void removeItemFromCart(String productId) {
-    final updatedItems = state.items.where((item) => item.productId != productId).toList();
-    
+    final updatedItems =
+        state.items.where((item) => item.productId != productId).toList();
+
     // Si el carrito queda vacío, limpiamos el ID del locatario
-    final newLocatarioId = updatedItems.isEmpty ? null : state.currentLocatarioId;
+    final newLocatarioId =
+        updatedItems.isEmpty ? null : state.currentLocatarioId;
 
     state = state.copyWith(
       items: updatedItems,
@@ -103,6 +108,6 @@ class OrderNotifier extends StateNotifier<Carrito> {
 // --- 3. Provider Público ---
 
 // Provider que expone la instancia del Notifier
-final orderNotifierProvider = StateNotifierProvider<OrderNotifier, Carrito>((ref) {
-  return OrderNotifier();
-});
+final orderNotifierProvider = NotifierProvider<OrderNotifier, Carrito>(
+  OrderNotifier.new,
+);

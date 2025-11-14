@@ -3,7 +3,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/models/producto.dart';
 // Importamos los demás modelos que usaremos más tarde
-import '../core/models/producto.dart';
 import '../core/models/pedido.dart';
 import '../core/models/pedido_item.dart';
 

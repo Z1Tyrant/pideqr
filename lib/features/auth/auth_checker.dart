@@ -54,7 +54,7 @@ class HomeScreen extends ConsumerWidget {
                   backgroundColor: Theme.of(context).primaryColor,
                   foregroundColor: Colors.white,
                 ),
-                child: const Icon(Icons.qr_code_scanner, size: 70),
+                child: const Icon(Icons.qr_code, size: 70),
                 onPressed: () {
                   // Navegar a la pantalla del escáner
                   Navigator.of(context).push(

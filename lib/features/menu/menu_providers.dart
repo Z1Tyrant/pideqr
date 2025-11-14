@@ -9,15 +9,40 @@ final firestoreServiceProvider = Provider<FirestoreService>((ref) {
   return FirestoreService();
 });
 
-// StateProvider para el Locatario actual que estamos viendo (¡Simulación!)
-// En el MVP final, este ID vendrá del escaneo del QR.
-final currentLocatarioIdProvider = StateProvider<String>((ref) => 'loc_test_hamburguesas'); 
+// --- Provider para el Locatario Actual ---
+
+// Notifier que gestiona el estado del ID del locatario.
+class CurrentLocatarioIdNotifier extends Notifier<String> {
+  @override
+  String build() {
+    // Valor inicial simulado. En el futuro, podría estar vacío.
+    return 'loc_test_hamburguesas';
+  }
+
+  // Método para actualizar el ID del locatario.
+  void updateId(String newId) {
+    state = newId;
+  }
+}
+
+// El provider público que expone el Notifier.
+final currentLocatarioIdProvider =
+    NotifierProvider<CurrentLocatarioIdNotifier, String>(
+  CurrentLocatarioIdNotifier.new,
+);
+
+// ----------------------------------------
 
 // StreamProvider para obtener la lista de productos en tiempo real
 final productosStreamProvider = StreamProvider.autoDispose<List<Producto>>((ref) {
   // Observa el ID del locatario que estamos viendo
   final locatarioId = ref.watch(currentLocatarioIdProvider);
-  
+
+  // Si no hay ID, no hay nada que mostrar (se puede manejar en la UI)
+  if (locatarioId.isEmpty) {
+    return Stream.value([]);
+  }
+
   // Llama al servicio de Firestore
   final firestoreService = ref.watch(firestoreServiceProvider);
 

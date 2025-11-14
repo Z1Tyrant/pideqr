@@ -83,4 +83,5 @@ class DefaultFirebaseOptions {
     authDomain: 'pideqr-8fbfc.firebaseapp.com',
     storageBucket: 'pideqr-8fbfc.firebasestorage.app',
   );
+
 }

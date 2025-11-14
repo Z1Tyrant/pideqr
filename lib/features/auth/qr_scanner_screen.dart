@@ -2,9 +2,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:qr_code_scanner/qr_code_scanner.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../menu/menu_providers.dart';
-import '../menu/menu_screen.dart'; 
+import '../menu/menu_screen.dart';
 
 class QRScannerScreen extends ConsumerStatefulWidget {
   const QRScannerScreen({super.key});
@@ -14,47 +14,36 @@ class QRScannerScreen extends ConsumerStatefulWidget {
 }
 
 class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
-  final GlobalKey qrKey = GlobalKey(debugLabel: 'QR');
-  QRViewController? controller;
   bool isScanned = false;
-
-  @override
-  void reassemble() {
-    super.reassemble();
-    controller?.pauseCamera();
-    controller?.resumeCamera();
-  }
+  MobileScannerController controller = MobileScannerController();
 
   @override
   void dispose() {
-    controller?.dispose();
+    controller.dispose();
     super.dispose();
   }
 
-  // Lógica principal de escaneo
-  void _onQRViewCreated(QRViewController controller) {
-    this.controller = controller;
-    controller.scannedDataStream.listen((scanData) {
-      if (isScanned) return;
+  void _onDetect(BarcodeCapture capture) {
+    if (isScanned) return;
 
-      if (scanData.code != null) {
-        // Detener la cámara y procesar
+    final List<Barcode> barcodes = capture.barcodes;
+    if (barcodes.isNotEmpty) {
+      final String? code = barcodes.first.rawValue;
+      if (code != null) {
+        if (!mounted) return;
+
         isScanned = true;
-        controller.pauseCamera();
-        
-        // 1. EL VALOR CLAVE: El código QR contiene el ID del locatario
-        final locatarioId = scanData.code!; 
-        
-        // 2. ACTUALIZAR EL PROVIDER: Informar a la aplicación qué menú cargar
-        ref.read(currentLocatarioIdProvider.notifier).state = locatarioId;
-        
-        // 3. REDIRECCIÓN: Cerrar el escáner y navegar al Menú
-        // Usamos pushReplacement para evitar que el usuario vuelva al escáner con el botón de atrás
+        // The camera is automatically paused on detection.
+
+        final locatarioId = code;
+        // Updated to use the notifier's method
+        ref.read(currentLocatarioIdProvider.notifier).updateId(locatarioId);
+
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const MenuScreen()),
         );
       }
-    });
+    }
   }
 
   @override
@@ -63,26 +52,32 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
       appBar: AppBar(
         title: const Text('Escanear QR de Mesa/Locatario'),
       ),
-      body: Column(
+      body: Stack(
+        alignment: Alignment.center,
         children: <Widget>[
-          Expanded(
-            flex: 4,
-            child: QRView(
-              key: qrKey,
-              onQRViewCreated: _onQRViewCreated,
-              overlay: QrScannerOverlayShape(
-                borderColor: Colors.red,
-                borderRadius: 10,
-                borderLength: 30,
-                borderWidth: 10,
-                cutOutSize: 300,
+          MobileScanner(
+            controller: controller,
+            onDetect: _onDetect,
+          ),
+          Container(
+            width: 300,
+            height: 300,
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: Colors.red,
+                width: 4,
               ),
+              borderRadius: BorderRadius.circular(10),
             ),
           ),
-          const Expanded(
-            flex: 1,
-            child: Center(
-              child: Text('Apunta la cámara al QR del local para ver el menú.'),
+          const Positioned(
+            bottom: 50,
+            child: Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Text(
+                'Apunta la cámara al QR del local para ver el menú.',
+                style: TextStyle(color: Colors.white, backgroundColor: Colors.black54),
+              ),
             ),
           )
         ],
