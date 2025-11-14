@@ -30,11 +30,13 @@ class MenuScreen extends ConsumerWidget {
               IconButton(
                 icon: const Icon(Icons.shopping_cart),
                 onPressed: () {
-                  // Muestra un mensaje temporal con la info del carrito
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Carrito con ${carrito.items.length} items. Subtotal: \$${carrito.subtotal.toStringAsFixed(0)}')),
-                  );
-                },
+                  // Verificar si el carrito está vacío antes de navegar
+                  if (carrito.items.isEmpty) {
+                     ScaffoldMessenger.of(context).showSnackBar(
+                       const SnackBar(content: Text('El carrito está vacío. Añade productos primero.')),
+                     );
+                     return;
+                  }
               ),
               if (carrito.items.isNotEmpty)
                 Positioned(
