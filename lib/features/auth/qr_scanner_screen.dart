@@ -35,9 +35,9 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
         isScanned = true;
         // The camera is automatically paused on detection.
 
-        final locatarioId = code;
-        // Updated to use the notifier's method
-        ref.read(currentLocatarioIdProvider.notifier).updateId(locatarioId);
+        final tiendaId = code;
+        // Se actualiza el provider con el nombre correcto
+        ref.read(currentTiendaIdProvider.notifier).updateId(tiendaId);
 
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const MenuScreen()),
@@ -50,7 +50,7 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Escanear QR de Mesa/Locatario'),
+        title: const Text('Escanear QR de Tienda'), // Título actualizado
       ),
       body: Stack(
         alignment: Alignment.center,
@@ -75,7 +75,7 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
             child: Padding(
               padding: EdgeInsets.all(8.0),
               child: Text(
-                'Apunta la cámara al QR del local para ver el menú.',
+                'Apunta la cámara al QR de la tienda para ver el menú.',
                 style: TextStyle(color: Colors.white, backgroundColor: Colors.black54),
               ),
             ),

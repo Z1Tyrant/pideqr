@@ -9,11 +9,13 @@ import '../core/models/pedido_item.dart';
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // Stream para obtener la lista de productos de un locatario en tiempo real
-  Stream<List<Producto>> streamProductosPorLocatario(String locatarioId) {
+  // --- NUEVA FUNCIÓN CON SUBCOLECCIONES ---
+  // Stream para obtener la lista de productos de una tienda en tiempo real.
+  Stream<List<Producto>> streamProductosPorTienda(String tiendaId) {
     return _db
-        .collection('productos')
-        .where('locatario_id', isEqualTo: locatarioId)
+        .collection('tiendas') // 1. Apunta a la colección de tiendas
+        .doc(tiendaId)           // 2. Selecciona el documento de la tienda específica
+        .collection('productos') // 3. Apunta a su subcolección de productos
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => Producto.fromMap(doc.data(), doc.id))
@@ -21,7 +23,7 @@ class FirestoreService {
   }
 
 
-  // --- ESCRITURA DE PEDIDOS ---
+  // --- ESCRITURA DE PEDIDOS (se mantiene igual por ahora) ---
   
   Future<String> saveNewPedido({
     required Pedido pedido, 
@@ -32,7 +34,7 @@ class FirestoreService {
     final pedidoId = pedidoRef.id;
 
     // 2. Guardar los PedidoItems en la subcolección 'items'
-    final batch = _db.batch(); // Usamos un batch para asegurar que todo el pedido se guarde junto
+    final batch = _db.batch(); 
     
     for (var item in items) {
       final itemRef = _db.collection('pedidos').doc(pedidoId).collection('items').doc();
