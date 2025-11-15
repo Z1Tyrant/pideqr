@@ -5,14 +5,14 @@ class Producto {
   final String name;
   final double price;
   final String description;
-  final String locatarioId;
+  final int stock; // <-- NUEVO CAMPO
 
   Producto({
     required this.id,
     required this.name,
     required this.price,
     required this.description,
-    required this.locatarioId,
+    required this.stock, // <-- NUEVO CAMPO
   });
 
   // Constructor factory para crear un Producto a partir de un documento de Firestore
@@ -20,21 +20,20 @@ class Producto {
     return Producto(
       id: id,
       name: data['name'] ?? '',
-      // Los precios suelen guardarse como int en Firestore para evitar errores de coma flotante.
-      // Aquí lo convertimos a double para Dart, asumiendo que está guardado como num.
       price: (data['price'] as num?)?.toDouble() ?? 0.0,
       description: data['description'] ?? '',
-      locatarioId: data['locatario_id'] ?? '',
+      stock: data['stock'] as int? ?? 0, // <-- NUEVO CAMPO (default a 0 si no existe)
     );
   }
 
   // Método para convertir el objeto a un mapa para guardarlo en Firestore
+  // (No lo usamos para leer, pero es buena práctica tenerlo)
   Map<String, dynamic> toMap() {
     return {
       'name': name,
       'price': price,
       'description': description,
-      'locatario_id': locatarioId,
+      'stock': stock,
     };
   }
 }

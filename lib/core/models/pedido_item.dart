@@ -16,6 +16,21 @@ class PedidoItem {
   // Getters útiles
   double get subtotal => unitPrice * quantity;
 
+  // --- MÉTODO copyWith AÑADIDO ---
+  PedidoItem copyWith({
+    String? productId,
+    String? productName,
+    double? unitPrice,
+    int? quantity,
+  }) {
+    return PedidoItem(
+      productId: productId ?? this.productId,
+      productName: productName ?? this.productName,
+      unitPrice: unitPrice ?? this.unitPrice,
+      quantity: quantity ?? this.quantity,
+    );
+  }
+
   // Método para convertir el objeto a un mapa para guardarlo en Firestore
   Map<String, dynamic> toMap() {
     return {
