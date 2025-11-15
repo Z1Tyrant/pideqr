@@ -83,6 +83,8 @@ class AuthChecker extends ConsumerWidget {
     // Observar el estado completo del usuario (UserModel)
     final authState = ref.watch(userModelProvider);
 
+    
+
     return authState.when(
       // Muestra un spinner mientras carga el estado de Firebase
       loading: () => const Scaffold(
@@ -102,4 +104,5 @@ class AuthChecker extends ConsumerWidget {
       },
     );
   }
+  
 }
