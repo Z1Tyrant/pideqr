@@ -37,6 +37,7 @@ class MenuScreen extends ConsumerWidget {
                      );
                      return;
                   }
+                },
               ),
               if (carrito.items.isNotEmpty)
                 Positioned(
