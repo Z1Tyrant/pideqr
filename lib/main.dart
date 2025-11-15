@@ -29,7 +29,8 @@ class PideQRApp extends StatelessWidget {
     return MaterialApp(
       title: 'PideQR',
       theme: ThemeData(
-        primarySwatch: Colors.indigo,
+        // Tema actualizado para Material 3
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
         useMaterial3: true,
       ),
       // Punto de entrada que verifica si el usuario está logueado o no

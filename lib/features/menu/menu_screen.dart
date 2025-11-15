@@ -3,9 +3,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/producto.dart';
+import '../orders/cart_screen.dart'; // <-- NUEVA IMPORTACIÓN
 import '../orders/order_provider.dart';
-import 'menu_providers.dart'; 
-import '../auth/auth_checker.dart'; 
+import 'menu_providers.dart';
+import '../auth/auth_checker.dart';
 
 class MenuScreen extends ConsumerWidget {
   const MenuScreen({super.key});
@@ -19,39 +20,50 @@ class MenuScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Menú de la Tienda'),
         actions: [
-          Stack(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.shopping_cart),
-                onPressed: () {
-                  if (carrito.items.isEmpty) {
-                     ScaffoldMessenger.of(context).showSnackBar(
-                       const SnackBar(content: Text('El carrito está vacío. Añade productos primero.')),
-                     );
-                     return;
-                  }
-                  // Aquí iría la navegación a la pantalla del carrito
-                },
-              ),
-              if (carrito.items.isNotEmpty)
+          // --- WIDGET DEL CARRITO ACTUALIZADO ---
+          if (carrito.items.isNotEmpty)
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.shopping_cart),
+                  onPressed: () {
+                    // Navega a la pantalla del carrito
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (context) => const CartScreen()),
+                    );
+                  },
+                ),
                 Positioned(
-                  right: 0,
+                  top: 8,
+                  right: 8,
                   child: Container(
-                    padding: const EdgeInsets.all(4),
+                    padding: const EdgeInsets.all(2),
                     decoration: BoxDecoration(
                       color: Colors.red,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
                     child: Text(
-                      '${carrito.items.length}',
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                      // Muestra el total de items, no solo la cantidad de productos
+                      '${carrito.totalItems}',
+                      style: const TextStyle(color: Colors.white, fontSize: 10),
                       textAlign: TextAlign.center,
                     ),
                   ),
                 ),
-            ],
-          ),
+              ],
+            )
+          else // Muestra un ícono simple si el carrito está vacío
+            IconButton(
+              // --- CORREGIDO ---
+              icon: const Icon(Icons.shopping_cart_outlined),
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('El carrito está vacío. Añade productos primero.')),
+                );
+              },
+            ),
           IconButton(
             icon: const Icon(Icons.home),
             onPressed: () {
@@ -83,7 +95,7 @@ class MenuScreen extends ConsumerWidget {
   }
 }
 
-// --- Widget de Producto Individual (Tile - ACTUALIZADO) ---
+// --- Widget de Producto Individual (Tile) ---
 
 class ProductoTile extends ConsumerWidget {
   final Producto producto;
@@ -92,16 +104,13 @@ class ProductoTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final orderNotifier = ref.read(orderNotifierProvider.notifier);
-    // Obtenemos el ID de la tienda actual para pasarlo al notifier
     final tiendaId = ref.watch(currentTiendaIdProvider);
 
-    // Variable para saber si el producto está agotado
     final bool isOutOfStock = producto.stock <= 0;
 
     return ListTile(
-      isThreeLine: true, // Damos más espacio al subtítulo
+      isThreeLine: true,
       title: Text(producto.name),
-      // Subtítulo ahora muestra descripción y stock
       subtitle: Text('${producto.description}\nStock disponible: ${producto.stock}'),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
@@ -109,28 +118,24 @@ class ProductoTile extends ConsumerWidget {
           Text('\$${producto.price.toStringAsFixed(0)}'),
           const SizedBox(width: 8),
           IconButton(
-            // El ícono cambia de color si el producto está agotado
             icon: Icon(
               Icons.add_circle,
               color: isOutOfStock ? Colors.grey : Colors.indigo,
             ),
-            // Si está agotado, onPressed es null, lo que deshabilita el botón
             onPressed: isOutOfStock
                 ? null
                 : () {
                     try {
-                      // Llamamos a la función con todos los parámetros requeridos
                       orderNotifier.addItemToCart(
                         producto: producto,
                         quantity: 1,
-                        tiendaId: tiendaId, // Pasamos el ID de la tienda
+                        tiendaId: tiendaId,
                       );
 
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text('${producto.name} añadido al carrito!')),
                       );
                     } catch (e) {
-                      // Mostramos cualquier error (stock insuficiente, etc.)
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text(e.toString().replaceAll('Exception: ', '🛑 '))),
                       );

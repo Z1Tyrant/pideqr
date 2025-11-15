@@ -2,28 +2,37 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/models/producto.dart';
-// Importamos los demás modelos que usaremos más tarde
 import '../core/models/pedido.dart';
 import '../core/models/pedido_item.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // --- NUEVA FUNCIÓN CON SUBCOLECCIONES ---
   // Stream para obtener la lista de productos de una tienda en tiempo real.
   Stream<List<Producto>> streamProductosPorTienda(String tiendaId) {
     return _db
-        .collection('tiendas') // 1. Apunta a la colección de tiendas
-        .doc(tiendaId)           // 2. Selecciona el documento de la tienda específica
-        .collection('productos') // 3. Apunta a su subcolección de productos
+        .collection('tiendas')
+        .doc(tiendaId)
+        .collection('productos')
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => Producto.fromMap(doc.data(), doc.id))
             .toList());
   }
 
+  // --- NUEVA FUNCIÓN PARA EL HISTORIAL DE PEDIDOS ---
+  Stream<List<Pedido>> streamUserOrders(String userId) {
+    return _db
+        .collection('pedidos')
+        .where('userId', isEqualTo: userId)
+        .orderBy('timestamp', descending: true) // Ordenar por fecha, más nuevos primero
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Pedido.fromMap(doc.data(), doc.id))
+            .toList());
+  }
 
-  // --- ESCRITURA DE PEDIDOS (se mantiene igual por ahora) ---
+  // --- ESCRITURA DE PEDIDOS ---
   
   Future<String> saveNewPedido({
     required Pedido pedido, 

@@ -2,8 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/models/pedido.dart'; // Para PedidoStatus
-import '../auth/auth_providers.dart';
+import 'package:pideqr/features/orders/payment_screen.dart'; // <-- IMPORTAMOS LA NUEVA PANTALLA
 import 'order_provider.dart';
 
 class CartScreen extends ConsumerWidget {
@@ -11,91 +10,98 @@ class CartScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 1. Observar el estado del carrito
     final carrito = ref.watch(orderNotifierProvider);
     final orderNotifier = ref.read(orderNotifierProvider.notifier);
-    
-    // El ID del usuario autenticado (necesario para el pedido)
-    final userId = ref.watch(userModelProvider).value?.uid;
-
-    // Si el carrito está vacío, no hay nada que mostrar
-    if (carrito.items.isEmpty) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Tu Pedido')),
-        body: const Center(child: Text('El carrito está vacío.')),
-      );
-    }
-    
-    // Función de simulación de pago
-    void submitOrder() async {
-      if (userId == null || carrito.currentLocatarioId == null) return;
-
-      // 1. Construir el objeto Pedido
-      final newPedido = Pedido(
-        userId: userId,
-        locatarioId: carrito.currentLocatarioId!,
-        totalAmount: carrito.subtotal,
-        status: PedidoStatus.pagado, // Simular que el pago es exitoso
-        createdAt: DateTime.now(),
-      );
-
-      // 2. Aquí llamaríamos a la función de guardado en Firestore.
-      // 🚨 Pendiente: Implementar el guardado real en FirestoreService
-      
-      // 3. Limpiar el carrito después de la "simulación" de pago exitosa
-      orderNotifier.clearCart(); 
-
-      // 4. Redirigir a la pantalla de confirmación/QR de la orden
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('¡Pago simulado exitoso!')),
-      );
-      // TODO: Navegar a OrderConfirmationScreen(pedidoId: id)
-    }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Confirmar Pedido')),
-      body: Column(
-        children: [
-          // --- Lista de Ítems del Carrito ---
-          Expanded(
-            child: ListView.builder(
+      appBar: AppBar(
+        title: const Text('Mi Pedido'),
+        actions: [
+          if (carrito.items.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.delete_sweep, color: Colors.red),
+              tooltip: 'Vaciar carrito',
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Confirmar'),
+                    content: const Text('¿Estás seguro de que quieres vaciar el carrito?'),
+                    actions: [
+                      TextButton(
+                        child: const Text('Cancelar'),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                      TextButton(
+                        child: const Text('Vaciar', style: TextStyle(color: Colors.red)),
+                        onPressed: () {
+                          orderNotifier.clearCart();
+                          Navigator.of(context).pop();
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              },
+            )
+        ],
+      ),
+      body: carrito.items.isEmpty
+          ? const Center(
+              child: Text(
+                'Tu carrito está vacío',
+                style: TextStyle(fontSize: 18, color: Colors.grey),
+              ),
+            )
+          : ListView.builder(
               itemCount: carrito.items.length,
               itemBuilder: (context, index) {
                 final item = carrito.items[index];
                 return ListTile(
-                  title: Text('${item.productName} x ${item.quantity}'),
-                  subtitle: Text('Precio unitario: \$${item.unitPrice.toStringAsFixed(0)}'),
-                  trailing: Text('\$${item.subtotal.toStringAsFixed(0)}'),
-                  
+                  title: Text(item.productName),
+                  subtitle: Text('Precio: \$${item.unitPrice.toStringAsFixed(0)}'),
+                  leading: CircleAvatar(
+                    child: Text(item.quantity.toString()),
+                  ),
+                  trailing: Text(
+                    'Subtotal: \$${item.subtotal.toStringAsFixed(0)}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  onLongPress: () {
+                    orderNotifier.removeItemFromCart(item.productId);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${item.productName} eliminado')),
+                    );
+                  },
                 );
               },
             ),
-          ),
-          
-          // --- Resumen y Botón de Pago ---
-          Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'TOTAL: \$${carrito.subtotal.toStringAsFixed(0)}',
-                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.indigo),
+      bottomNavigationBar: carrito.items.isEmpty
+          ? null
+          : BottomAppBar(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Total: \$${carrito.subtotal.toStringAsFixed(0)}',
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.check_circle),
+                      label: const Text('Confirmar Pedido'),
+                      // --- LÓGICA DE NAVEGACIÓN ACTUALIZADA ---
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (context) => const PaymentScreen()),
+                        );
+                      },
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: submitOrder,
-                  icon: const Icon(Icons.payment),
-                  label: const Text('Simular Pago y Ordenar'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-        ],
-      ),
     );
   }
 }
