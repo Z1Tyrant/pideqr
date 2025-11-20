@@ -50,13 +50,14 @@ class FirestoreService {
             .toList());
   }
 
-  // --- CONSULTA DEL VENDEDOR SIMPLIFICADA ---
-  Stream<List<Pedido>> streamPaidOrdersForStore(String tiendaId) {
+  // --- CONSULTA DEL VENDEDOR ACTUALIZADA ---
+  Stream<List<Pedido>> streamPendingOrdersForStore(String tiendaId) {
     return _db
         .collection('pedidos')
         .where('tiendaId', isEqualTo: tiendaId)
-        .where('status', isEqualTo: 'pagado')
-        // Se elimina el orderBy para simplificar y evitar conflictos de índices
+        // Ahora busca pedidos que estén 'pagado' O 'listo_para_entrega'
+        .where('status', whereIn: ['pagado', 'listo_para_entrega'])
+        .orderBy('timestamp', descending: false)
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => Pedido.fromMap(doc.data(), doc.id))

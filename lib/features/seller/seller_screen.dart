@@ -6,13 +6,15 @@ import 'package:intl/intl.dart';
 import 'package:pideqr/features/auth/auth_providers.dart';
 import 'package:pideqr/features/orders/order_provider.dart';
 import 'package:pideqr/features/menu/menu_providers.dart';
+import 'package:pideqr/features/seller/order_delivery_scanner.dart';
 
 class SellerScreen extends ConsumerWidget {
   const SellerScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final ordersAsyncValue = ref.watch(paidOrdersProvider);
+    // --- PROVIDER ACTUALIZADO ---
+    final ordersAsyncValue = ref.watch(pendingOrdersProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -34,7 +36,7 @@ class SellerScreen extends ConsumerWidget {
           if (orders.isEmpty) {
             return const Center(
               child: Text(
-                'No hay pedidos pagados pendientes.',
+                'No hay pedidos pendientes.', // Texto actualizado
                 style: TextStyle(fontSize: 18, color: Colors.grey),
               ),
             );
@@ -49,7 +51,7 @@ class SellerScreen extends ConsumerWidget {
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 child: Padding(
-                  padding: const EdgeInsets.all(8.0),
+                  padding: const EdgeInsets.all(12.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -60,27 +62,45 @@ class SellerScreen extends ConsumerWidget {
                       const Divider(),
                       Text('Fecha: $formattedDate'),
                       Text('Total: \$${order.total.toStringAsFixed(0)}'),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          icon: const Icon(Icons.local_shipping),
-                          label: const Text('Marcar como Listo para Entrega'), // <-- TEXTO CAMBIADO
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blueAccent,
-                            foregroundColor: Colors.white,
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orangeAccent,
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: () {
+                                ref
+                                    .read(firestoreServiceProvider)
+                                    .updateOrderStatus(order.id!, 'listo_para_entrega');
+                              },
+                              child: const Text('Preparado'),
+                            ),
                           ),
-                          onPressed: () {
-                            ref
-                                .read(firestoreServiceProvider)
-                                .updateOrderStatus(order.id!, 'listo_para_entrega'); // <-- ESTADO CAMBIADO
-                            
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Pedido marcado como listo para entrega.')),
-                            );
-                          },
-                        ),
-                      ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.qr_code_scanner),
+                              label: const Text('Entregar'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => OrderDeliveryScannerScreen(
+                                      expectedOrderId: order.id!,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      )
                     ],
                   ),
                 ),

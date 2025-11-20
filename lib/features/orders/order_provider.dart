@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/pedido.dart';
 import '../../core/models/pedido_item.dart';
 import '../../core/models/producto.dart';
-import '../../core/models/user_model.dart'; // Necesario para el rol
+import '../../core/models/user_model.dart';
 import '../../services/firestore_service.dart';
 import '../auth/auth_providers.dart';
 import '../menu/menu_providers.dart'; 
@@ -104,13 +104,14 @@ final userOrdersProvider = StreamProvider.autoDispose<List<Pedido>>((ref) {
   return Stream.value([]);
 });
 
-// --- PROVIDER PARA LA VISTA DEL VENDEDOR (RE-AÑADIDO) ---
-final paidOrdersProvider = StreamProvider.autoDispose<List<Pedido>>((ref) {
+// --- PROVIDER DEL VENDEDOR ACTUALIZADO ---
+final pendingOrdersProvider = StreamProvider.autoDispose<List<Pedido>>((ref) {
   final firestoreService = ref.watch(firestoreServiceProvider);
   final userModel = ref.watch(userModelProvider).value;
 
   if (userModel != null && userModel.role == UserRole.vendedor && userModel.tiendaId != null) {
-    return firestoreService.streamPaidOrdersForStore(userModel.tiendaId!);
+    // Llama a la nueva función que obtiene pedidos pendientes
+    return firestoreService.streamPendingOrdersForStore(userModel.tiendaId!);
   }
   
   return Stream.value([]);

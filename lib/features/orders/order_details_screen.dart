@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pideqr/core/models/pedido_item.dart';
 import 'package:pideqr/features/menu/menu_providers.dart';
-import 'package:qr_flutter/qr_flutter.dart'; // <-- NUEVA IMPORTACIÓN
+import 'package:qr_flutter/qr_flutter.dart';
 import 'order_provider.dart';
 
 final orderItemsProvider = StreamProvider.autoDispose.family<List<PedidoItem>, String>((ref, orderId) {
@@ -33,10 +33,8 @@ class OrderDetailsScreen extends ConsumerWidget {
             return const Center(child: Text('Este pedido no tiene productos.'));
           }
 
-          // Usamos Column para poder añadir el QR debajo de la lista
           return Column(
             children: [
-              // La lista de productos ahora ocupa el espacio disponible
               Expanded(
                 child: ListView.builder(
                   itemCount: items.length,
@@ -51,21 +49,29 @@ class OrderDetailsScreen extends ConsumerWidget {
                   },
                 ),
               ),
-              // --- WIDGET DE QR AÑADIDO EN LA PARTE INFERIOR ---
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Center(
-                  child: Column(
-                    children: [
-                      const Text('ID de la Transacción', style: TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      QrImageView(
-                        data: orderId, // El QR contiene el ID del pedido
-                        version: QrVersions.auto,
-                        size: 150.0,
-                        backgroundColor: Colors.white,
-                      ),
-                    ],
+              // --- BLOQUE DE QR ENVUELTO EN SAFEAREA ---
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0), // Reducimos el padding vertical
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'ID de la Transacción',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          color: Colors.white,
+                          child: QrImageView(
+                            data: orderId,
+                            version: QrVersions.auto,
+                            size: 180.0,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
