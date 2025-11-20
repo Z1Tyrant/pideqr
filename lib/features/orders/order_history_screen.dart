@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:pideqr/features/orders/order_details_screen.dart'; // <-- NUEVA IMPORTACIÓN
+import 'package:pideqr/features/orders/order_details_screen.dart';
 import 'order_provider.dart';
 
 class OrderHistoryScreen extends ConsumerWidget {
@@ -56,9 +56,7 @@ class OrderHistoryScreen extends ConsumerWidget {
                     backgroundColor: _getStatusColor(order.status),
                   ),
                   isThreeLine: true,
-                  // --- ACCIÓN AÑADIDA ---
                   onTap: () {
-                    // Navega a la pantalla de detalle, pasando el ID del pedido
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (context) => OrderDetailsScreen(orderId: order.id!),
@@ -74,12 +72,15 @@ class OrderHistoryScreen extends ConsumerWidget {
     );
   }
 
+  // --- FUNCIÓN DE COLOR ACTUALIZADA ---
   Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) { // Lo hacemos insensible a mayúsculas
+    switch (status.toLowerCase()) {
       case 'pagado':
         return Colors.green;
       case 'en_preparacion':
         return Colors.orange;
+      case 'listo_para_entrega': // <-- NUEVO ESTADO
+        return Colors.blueAccent;
       case 'listo_para_retirar':
         return Colors.blue;
       case 'cancelado':

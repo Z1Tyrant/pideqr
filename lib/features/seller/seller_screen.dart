@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:pideqr/features/auth/auth_providers.dart';
 import 'package:pideqr/features/orders/order_provider.dart';
-import 'package:pideqr/features/menu/menu_providers.dart'; // Import para firestoreServiceProvider
+import 'package:pideqr/features/menu/menu_providers.dart';
 
 class SellerScreen extends ConsumerWidget {
   const SellerScreen({super.key});
@@ -16,7 +16,7 @@ class SellerScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Pedidos de la Tienda'),
+        title: const Text('Pedidos Pendientes'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -64,19 +64,19 @@ class SellerScreen extends ConsumerWidget {
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
-                          icon: const Icon(Icons.check_circle),
-                          label: const Text('Marcar como Listo para Retirar'),
+                          icon: const Icon(Icons.local_shipping),
+                          label: const Text('Marcar como Listo para Entrega'), // <-- TEXTO CAMBIADO
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
+                            backgroundColor: Colors.blueAccent,
                             foregroundColor: Colors.white,
                           ),
                           onPressed: () {
                             ref
                                 .read(firestoreServiceProvider)
-                                .updateOrderStatus(order.id!, 'listo_para_retirar');
+                                .updateOrderStatus(order.id!, 'listo_para_entrega'); // <-- ESTADO CAMBIADO
                             
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Pedido marcado como listo.')),
+                              const SnackBar(content: Text('Pedido marcado como listo para entrega.')),
                             );
                           },
                         ),

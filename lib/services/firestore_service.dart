@@ -39,7 +39,6 @@ class FirestoreService {
             .toList());
   }
 
-  // --- NUEVA FUNCIÓN PARA OBTENER LOS ITEMS DE UN PEDIDO ---
   Stream<List<PedidoItem>> streamOrderItems(String orderId) {
     return _db
         .collection('pedidos')
@@ -50,14 +49,14 @@ class FirestoreService {
             .map((doc) => PedidoItem.fromMap(doc.data()))
             .toList());
   }
-  // -----------------------------------------------------
 
+  // --- CONSULTA DEL VENDEDOR SIMPLIFICADA ---
   Stream<List<Pedido>> streamPaidOrdersForStore(String tiendaId) {
     return _db
         .collection('pedidos')
         .where('tiendaId', isEqualTo: tiendaId)
         .where('status', isEqualTo: 'pagado')
-        .orderBy('timestamp', descending: false)
+        // Se elimina el orderBy para simplificar y evitar conflictos de índices
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => Pedido.fromMap(doc.data(), doc.id))
