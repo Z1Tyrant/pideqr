@@ -4,13 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/pedido.dart';
 import '../../core/models/pedido_item.dart';
 import '../../core/models/producto.dart';
+import '../../core/models/user_model.dart'; // Necesario para el rol
 import '../../services/firestore_service.dart';
 import '../auth/auth_providers.dart';
-import '../menu/menu_providers.dart'; // <-- IMPORTACIÓN AÑADIDA
+import '../menu/menu_providers.dart'; 
 
 // --- 1. Estado del Carrito ---
-
-class Carrito {
+class Carrito { 
   final List<PedidoItem> items;
   final String? currentTiendaId;
 
@@ -34,9 +34,8 @@ class Carrito {
 }
 
 // --- 2. Controlador de Lógica (OrderNotifier) ---
-
-class OrderNotifier extends Notifier<Carrito> {
-  @override
+class OrderNotifier extends Notifier<Carrito> { 
+   @override
   Carrito build() {
     return Carrito(items: []);
   }
@@ -94,17 +93,25 @@ final orderNotifierProvider = NotifierProvider<OrderNotifier, Carrito>(
   OrderNotifier.new,
 );
 
-// --- NUEVO PROVIDER PARA EL HISTORIAL DE PEDIDOS ---
 final userOrdersProvider = StreamProvider.autoDispose<List<Pedido>>((ref) {
   final firestoreService = ref.watch(firestoreServiceProvider);
-  // Escucha el provider de autenticación para obtener el usuario actual
   final user = ref.watch(authStateChangesProvider).value;
 
-  // Si hay un usuario, obtenemos su historial de pedidos
   if (user != null) {
     return firestoreService.streamUserOrders(user.uid);
   }
   
-  // Si no hay usuario, retorna un stream con una lista vacía.
+  return Stream.value([]);
+});
+
+// --- PROVIDER PARA LA VISTA DEL VENDEDOR (RE-AÑADIDO) ---
+final paidOrdersProvider = StreamProvider.autoDispose<List<Pedido>>((ref) {
+  final firestoreService = ref.watch(firestoreServiceProvider);
+  final userModel = ref.watch(userModelProvider).value;
+
+  if (userModel != null && userModel.role == UserRole.vendedor && userModel.tiendaId != null) {
+    return firestoreService.streamPaidOrdersForStore(userModel.tiendaId!);
+  }
+  
   return Stream.value([]);
 });

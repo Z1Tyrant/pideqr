@@ -2,12 +2,14 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pideqr/core/models/user_model.dart';
 import 'package:pideqr/features/auth/auth_providers.dart';
-import 'package:pideqr/features/auth/login_screen.dart'; 
-import 'package:pideqr/features/orders/order_history_screen.dart'; // <-- NUEVA IMPORTACIÓN
-import 'qr_scanner_screen.dart'; 
+import 'package:pideqr/features/auth/login_screen.dart';
+import 'package:pideqr/features/orders/order_history_screen.dart';
+import 'package:pideqr/features/seller/seller_screen.dart';
+import 'qr_scanner_screen.dart';
 
-// Pantallas de ejemplo
+// La HomeScreen del cliente se mantiene igual
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
   
@@ -23,9 +25,7 @@ class HomeScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('PideQR'),
-        // --- ACCIONES ACTUALIZADAS ---
         actions: [
-          // Botón para ver el historial de pedidos
           IconButton(
             icon: const Icon(Icons.history),
             tooltip: 'Mis Pedidos',
@@ -35,7 +35,6 @@ class HomeScreen extends ConsumerWidget {
               );
             },
           ),
-          // Botón para cerrar sesión
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Cerrar Sesión',
@@ -81,25 +80,45 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
+// --- AUTH CHECKER CORREGIDO ---
 class AuthChecker extends ConsumerWidget {
   const AuthChecker({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(userModelProvider);
+    // Observamos el estado de autenticación básico de Firebase.
+    final authState = ref.watch(authStateChangesProvider);
 
     return authState.when(
       loading: () => const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       ),
       error: (error, stack) => Scaffold(
-        body: Center(child: Text('Error: $error')),
+        body: Center(child: Text('Error de autenticación: $error')),
       ),
       data: (user) {
-        if (user != null) {
-          return const HomeScreen();
+        // Si el usuario de Firebase es null, vamos al Login.
+        if (user == null) {
+          return const LoginScreen();
         }
-        return const LoginScreen();
+
+        // Si hay un usuario, ahora SÍ observamos el userModelProvider para decidir a dónde ir.
+        final userModelAsync = ref.watch(userModelProvider);
+        return userModelAsync.when(
+          loading: () => const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          ),
+          error: (err, stack) => Scaffold(
+            body: Center(child: Text('Error al cargar datos de usuario: $err')),
+          ),
+          data: (userModel) {
+            if (userModel?.role == UserRole.vendedor) {
+              return const SellerScreen();
+            } else {
+              return const HomeScreen();
+            }
+          },
+        );
       },
     );
   }
