@@ -50,14 +50,25 @@ class FirestoreService {
             .toList());
   }
 
-  // --- CONSULTA DEL VENDEDOR ACTUALIZADA ---
   Stream<List<Pedido>> streamPendingOrdersForStore(String tiendaId) {
     return _db
         .collection('pedidos')
         .where('tiendaId', isEqualTo: tiendaId)
-        // Ahora busca pedidos que estén 'pagado' O 'listo_para_entrega'
         .where('status', whereIn: ['pagado', 'listo_para_entrega'])
         .orderBy('timestamp', descending: false)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Pedido.fromMap(doc.data(), doc.id))
+            .toList());
+  }
+
+  // --- NUEVA FUNCIÓN PARA EL HISTORIAL DEL VENDEDOR ---
+  Stream<List<Pedido>> streamDeliveredOrdersForStore(String tiendaId) {
+    return _db
+        .collection('pedidos')
+        .where('tiendaId', isEqualTo: tiendaId)
+        .where('status', isEqualTo: 'entregado')
+        .orderBy('timestamp', descending: true) // Más recientes primero
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => Pedido.fromMap(doc.data(), doc.id))

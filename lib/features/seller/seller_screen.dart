@@ -7,24 +7,34 @@ import 'package:pideqr/features/auth/auth_providers.dart';
 import 'package:pideqr/features/orders/order_provider.dart';
 import 'package:pideqr/features/menu/menu_providers.dart';
 import 'package:pideqr/features/seller/order_delivery_scanner.dart';
+import 'package:pideqr/features/seller/seller_history_screen.dart'; // <-- NUEVA IMPORTACIÓN
 
 class SellerScreen extends ConsumerWidget {
   const SellerScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // --- PROVIDER ACTUALIZADO ---
     final ordersAsyncValue = ref.watch(pendingOrdersProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Pedidos Pendientes'),
         actions: [
+          // --- BOTÓN DE HISTORIAL AÑADIDO ---
+          IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: 'Historial de Entregas',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const SellerHistoryScreen()),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Cerrar Sesión',
             onPressed: () => ref.read(authServiceProvider).signOut(),
-          )
+          ),
         ],
       ),
       body: ordersAsyncValue.when(
@@ -36,7 +46,7 @@ class SellerScreen extends ConsumerWidget {
           if (orders.isEmpty) {
             return const Center(
               child: Text(
-                'No hay pedidos pendientes.', // Texto actualizado
+                'No hay pedidos pendientes.',
                 style: TextStyle(fontSize: 18, color: Colors.grey),
               ),
             );
