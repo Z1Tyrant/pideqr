@@ -10,6 +10,11 @@ import 'package:pideqr/features/menu/menu_providers.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'order_provider.dart';
 
+import 'package:printing/printing.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:pdf/pdf.dart';
+import 'package:intl/intl.dart';
+
 final orderItemsProvider = StreamProvider.autoDispose.family<List<PedidoItem>, String>((ref, orderId) {
   final firestoreService = ref.watch(firestoreServiceProvider);
   return firestoreService.streamOrderItems(orderId);
@@ -37,6 +42,55 @@ class _OrderDetailsScreenState extends ConsumerState<OrderDetailsScreen> {
     });
   }
 
+  Future<void> _printOrder(Pedido order, List<PedidoItem> items, BuildContext context) async {
+    final doc = pw.Document();
+    final customer = await ref.read(userDataProvider(order.userId).future);
+    // --- OBTENER DATOS DE LA TIENDA ---
+    final tienda = await ref.read(tiendaDetailsProvider(order.tiendaId).future);
+
+    const pageFormat = PdfPageFormat(58 * PdfPageFormat.mm, double.infinity, marginAll: 5 * PdfPageFormat.mm);
+
+    doc.addPage(
+      pw.Page(
+        pageFormat: pageFormat,
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // --- TÍTULO Y DATOS MEJORADOS ---
+              pw.Text(tienda.name, style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+              pw.Divider(thickness: 1),
+              pw.Text('Pedido: #${order.id!.substring(order.id!.length - 6)}'),
+              pw.Text('Cliente: ${customer?.name ?? 'N/A'}'),
+              if (order.preparedBy != null && order.preparedBy!.isNotEmpty)
+                pw.Text('Procesado por: ${order.preparedBy}'),
+              pw.Text('Fecha: ${DateFormat('dd/MM/yy hh:mm').format(order.timestamp)}'),
+              pw.Divider(thickness: 1),
+              pw.SizedBox(height: 10),
+              pw.Column(
+                children: items.map((item) => pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Expanded(child: pw.Text('${item.quantity}x ${item.productName}')),
+                    pw.Text('\$${item.subtotal.toStringAsFixed(0)}'),
+                  ]
+                )).toList(),
+              ),
+              pw.SizedBox(height: 10),
+              pw.Divider(thickness: 1),
+              pw.Align(
+                alignment: pw.Alignment.centerRight,
+                child: pw.Text('TOTAL: \$${order.total.toStringAsFixed(0)}', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+              )
+            ],
+          );
+        },
+      ),
+    );
+
+    await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => doc.save());
+  }
+
   @override
   Widget build(BuildContext context) {
     final orderDetailsAsync = ref.watch(orderDetailsProvider(widget.orderId));
@@ -50,13 +104,28 @@ class _OrderDetailsScreenState extends ConsumerState<OrderDetailsScreen> {
           loading: () => const Text('Cargando...'),
           error: (e, st) => const Text('Detalle del Pedido'),
         ),
+        actions: [
+          if (currentUser?.role == UserRole.vendedor)
+            orderDetailsAsync.when(
+              data: (order) => itemsAsync.when(
+                data: (items) => IconButton(
+                  icon: const Icon(Icons.print),
+                  onPressed: () => _printOrder(order, items, context),
+                  tooltip: 'Imprimir Comanda',
+                ),
+                loading: () => const SizedBox.shrink(),
+                error: (e, st) => const SizedBox.shrink(),
+              ),
+              loading: () => const SizedBox.shrink(),
+              error: (e, st) => const SizedBox.shrink(),
+            )
+        ],
       ),
       body: orderDetailsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, st) => Center(child: Text('Error: $e')),
         data: (order) {
           final sellerInfo = ref.watch(sellerForStoreProvider(order.tiendaId));
-
           return Column(
             children: [
               Expanded(
@@ -65,9 +134,7 @@ class _OrderDetailsScreenState extends ConsumerState<OrderDetailsScreen> {
                   error: (e, st) => Center(child: Text('Error al cargar productos: $e')),
                   data: (items) {
                     if (items.isEmpty) return const Center(child: Text('Este pedido no tiene productos.'));
-
                     bool isSellerAndViewingPreparingOrder = currentUser?.role == UserRole.vendedor && order.status == 'en_preparacion';
-
                     if (isSellerAndViewingPreparingOrder) {
                       if (_checkedItems.isEmpty && items.isNotEmpty) {
                         _checkedItems = List<bool>.filled(items.length, false);
@@ -104,7 +171,6 @@ class _OrderDetailsScreenState extends ConsumerState<OrderDetailsScreen> {
                   },
                 ),
               ),
-              
               if (currentUser?.role == UserRole.vendedor && order.status == 'en_preparacion')
                 SafeArea(
                   child: Padding(
@@ -118,10 +184,7 @@ class _OrderDetailsScreenState extends ConsumerState<OrderDetailsScreen> {
                         ),
                         onPressed: _areAllItemsChecked
                             ? () {
-                                ref.read(firestoreServiceProvider).updateOrderStatus(
-                                      widget.orderId,
-                                      'listo_para_entrega',
-                                    );
+                                ref.read(firestoreServiceProvider).updateOrderStatus(widget.orderId, 'listo_para_entrega');
                                 Navigator.of(context).pop();
                               }
                             : null,

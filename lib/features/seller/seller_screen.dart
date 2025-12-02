@@ -15,6 +15,20 @@ import 'package:pideqr/features/seller/seller_lookup_scanner.dart';
 class SellerScreen extends ConsumerWidget {
   const SellerScreen({super.key});
 
+  // --- FUNCIÓN PARA OBTENER EL PESO DE CADA ESTADO ---
+  int _getStatusSortWeight(String status) {
+    switch (status.toLowerCase()) {
+      case 'en_preparacion':
+        return 1;
+      case 'pagado':
+        return 2;
+      case 'listo_para_entrega':
+        return 3;
+      default:
+        return 4;
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ordersAsyncValue = ref.watch(pendingOrdersProvider);
@@ -35,10 +49,23 @@ class SellerScreen extends ConsumerWidget {
           if (orders.isEmpty) {
             return const Center(child: Text('No hay pedidos pendientes.', style: TextStyle(fontSize: 18, color: Colors.grey)));
           }
+
+          // --- LÓGICA DE ORDENAMIENTO ---
+          final sortedOrders = List<Pedido>.from(orders);
+          sortedOrders.sort((a, b) {
+            int weightA = _getStatusSortWeight(a.status);
+            int weightB = _getStatusSortWeight(b.status);
+            if (weightA != weightB) {
+              return weightA.compareTo(weightB);
+            }
+            // Si tienen el mismo peso, ordenar por fecha (el más antiguo primero)
+            return a.timestamp.compareTo(b.timestamp);
+          });
+
           return ListView.builder(
             padding: const EdgeInsets.only(bottom: 80),
-            itemCount: orders.length,
-            itemBuilder: (context, index) => SellerOrderCard(order: orders[index]),
+            itemCount: sortedOrders.length,
+            itemBuilder: (context, index) => SellerOrderCard(order: sortedOrders[index]),
           );
         },
       ),
@@ -137,6 +164,20 @@ class _SellerOrderCardState extends ConsumerState<SellerOrderCard> {
                         }
                       },
                     ),
+              )
+            else if (widget.order.status == 'en_preparacion')
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.kitchen),
+                  label: const Text('Continuar Preparación'),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrange),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (context) => OrderDetailsScreen(orderId: widget.order.id!)),
+                    );
+                  },
+                ),
               )
             else
               Container(
