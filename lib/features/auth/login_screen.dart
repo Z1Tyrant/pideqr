@@ -2,8 +2,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // Importar para acceder a FirebaseAuthException
 import 'auth_providers.dart'; 
-import 'register_screen.dart'; // Necesario para navegar al registro
+import 'register_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -13,43 +14,54 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  // Controladores para obtener el texto de los campos
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
 
-  // Lógica para iniciar sesión
   Future<void> _signIn() async {
     setState(() {
       _isLoading = true;
     });
 
     try {
-      // 1. Acceder al servicio de autenticación usando Riverpod
       final authService = ref.read(authServiceProvider);
-      
-      // 2. Llamada al servicio de Firebase
       await authService.signInWithEmail(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
+    } on FirebaseAuthException catch (e) { // Capturamos el error específico de Firebase
+      if (!mounted) return;
 
-      // Si es exitoso, el AuthChecker detecta el cambio de estado y navega a HomeScreen
+      // --- LÓGICA DE TRADUCCIÓN DE ERRORES ---
+      String message;
+      switch (e.code) {
+        case 'invalid-email':
+          message = 'El formato del correo electrónico no es válido.';
+          break;
+        case 'user-not-found':
+        case 'wrong-password':
+        case 'invalid-credential':
+          message = 'Correo o contraseña incorrectos. Por favor, inténtalo de nuevo.';
+          break;
+        case 'network-request-failed':
+          message = 'Error de red. Revisa tu conexión a internet.';
+          break;
+        default:
+          message = 'Ocurrió un error inesperado al iniciar sesión.';
+      }
 
-    } catch (e) {
-      // 3. Manejo de errores y feedback al usuario
-      if (!mounted) return; // <-- CORRECCIÓN APLICADA
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error al iniciar sesión: ${e.toString()}'),
-          backgroundColor: Colors.red,
+          content: Text(message),
+          backgroundColor: Colors.redAccent,
         ),
       );
     } finally {
-      // 4. Detener el indicador de carga
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -69,7 +81,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            // Campo de Correo
             TextField(
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
@@ -80,7 +91,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
             const SizedBox(height: 16.0),
             
-            // Campo de Contraseña
             TextField(
               controller: _passwordController,
               obscureText: true,
@@ -91,7 +101,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
             const SizedBox(height: 32.0),
             
-            // Botón de Login
             SizedBox(
               width: double.infinity,
               child: _isLoading
@@ -109,10 +118,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
             const SizedBox(height: 16.0),
             
-            // Navegación a Registro
             TextButton(
               onPressed: () {
-                // Navegar a la pantalla de registro
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (context) => const RegisterScreen()),
                 );

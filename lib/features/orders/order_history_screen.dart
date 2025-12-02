@@ -16,20 +16,28 @@ class OrderHistoryScreen extends ConsumerWidget {
     );
   }
 
-  // --- FUNCIÓN PARA OBTENER EL PESO DE CADA ESTADO ---
   int _getStatusSortWeight(String status) {
-    switch (status.toLowerCase()) {
-      case 'listo_para_entrega':
-        return 1;
-      case 'en_preparacion':
-        return 2;
-      case 'pagado':
-        return 3;
-      case 'entregado':
-        return 4;
-      default:
-        return 5; // Otros estados al final
+    if (status == OrderStatus.listo_para_entrega.name) return 1;
+    if (status == OrderStatus.en_preparacion.name) return 2;
+    if (status == OrderStatus.pagado.name) return 3;
+    if (status == OrderStatus.entregado.name) return 4;
+    return 5; // Otros estados al final
+  }
+
+  // --- FUNCIÓN DE MANEJO DE ERRORES ---
+  void _showFriendlyError(BuildContext context, Object error) {
+    String message = 'Ocurrió un error inesperado.';
+    if (error.toString().contains('invalid-email')) {
+      message = 'El formato del correo electrónico no es válido.';
+    } else if (error.toString().contains('user-not-found') || error.toString().contains('wrong-password')) {
+      message = 'Correo o contraseña incorrectos. Por favor, inténtalo de nuevo.';
+    } else if (error.toString().contains('network-request-failed')) {
+      message = 'Error de red. Por favor, revisa tu conexión a internet.';
     }
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
   }
 
   @override
@@ -42,20 +50,20 @@ class OrderHistoryScreen extends ConsumerWidget {
       ),
       body: ordersAsyncValue.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(
-          child: Text('Error al cargar el historial: $error'),
-        ),
+        error: (error, stack) {
+          // Usamos la nueva función de errores
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _showFriendlyError(context, error);
+          });
+          return const Center(child: Text('No se pudo cargar el historial.'));
+        },
         data: (orders) {
           if (orders.isEmpty) {
             return const Center(
-              child: Text(
-                'Aún no has realizado ningún pedido.',
-                style: TextStyle(fontSize: 18, color: Colors.grey),
-              ),
+              child: Text('Aún no has realizado ningún pedido.', style: TextStyle(fontSize: 18, color: Colors.grey)),
             );
           }
 
-          // --- LÓGICA DE ORDENAMIENTO ---
           final sortedOrders = List<Pedido>.from(orders);
           sortedOrders.sort((a, b) {
             int weightA = _getStatusSortWeight(a.status);
@@ -85,9 +93,7 @@ class OrderHistoryScreen extends ConsumerWidget {
                   isThreeLine: true,
                   onTap: () {
                     Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => OrderDetailsScreen(orderId: order.id!),
-                      ),
+                      MaterialPageRoute(builder: (context) => OrderDetailsScreen(orderId: order.id!)),
                     );
                   },
                 ),
@@ -100,19 +106,11 @@ class OrderHistoryScreen extends ConsumerWidget {
   }
 
   Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'listo_para_entrega':
-        return Colors.blueAccent;
-      case 'en_preparacion':
-        return Colors.orange;
-      case 'pagado':
-        return Colors.green;
-      case 'entregado':
-        return Colors.grey; // <-- COLOR ACTUALIZADO
-      case 'cancelado':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
+    if (status == OrderStatus.listo_para_entrega.name) return Colors.blueAccent;
+    if (status == OrderStatus.en_preparacion.name) return Colors.orange;
+    if (status == OrderStatus.pagado.name) return Colors.green;
+    if (status == OrderStatus.entregado.name) return Colors.grey;
+    if (status == OrderStatus.cancelado.name) return Colors.red;
+    return Colors.grey;
   }
 }

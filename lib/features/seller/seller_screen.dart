@@ -15,18 +15,11 @@ import 'package:pideqr/features/seller/seller_lookup_scanner.dart';
 class SellerScreen extends ConsumerWidget {
   const SellerScreen({super.key});
 
-  // --- FUNCIÓN PARA OBTENER EL PESO DE CADA ESTADO ---
   int _getStatusSortWeight(String status) {
-    switch (status.toLowerCase()) {
-      case 'en_preparacion':
-        return 1;
-      case 'pagado':
-        return 2;
-      case 'listo_para_entrega':
-        return 3;
-      default:
-        return 4;
-    }
+    if (status == OrderStatus.en_preparacion.name) return 1;
+    if (status == OrderStatus.pagado.name) return 2;
+    if (status == OrderStatus.listo_para_entrega.name) return 3;
+    return 4;
   }
 
   @override
@@ -50,7 +43,6 @@ class SellerScreen extends ConsumerWidget {
             return const Center(child: Text('No hay pedidos pendientes.', style: TextStyle(fontSize: 18, color: Colors.grey)));
           }
 
-          // --- LÓGICA DE ORDENAMIENTO ---
           final sortedOrders = List<Pedido>.from(orders);
           sortedOrders.sort((a, b) {
             int weightA = _getStatusSortWeight(a.status);
@@ -58,7 +50,6 @@ class SellerScreen extends ConsumerWidget {
             if (weightA != weightB) {
               return weightA.compareTo(weightB);
             }
-            // Si tienen el mismo peso, ordenar por fecha (el más antiguo primero)
             return a.timestamp.compareTo(b.timestamp);
           });
 
@@ -130,7 +121,7 @@ class _SellerOrderCardState extends ConsumerState<SellerOrderCard> {
             Text('Total: \$${widget.order.total.toStringAsFixed(0)}'),
             const SizedBox(height: 16),
             
-            if (widget.order.status == 'pagado')
+            if (widget.order.status == OrderStatus.pagado.name)
               SizedBox(
                 width: double.infinity,
                 child: _isLoading 
@@ -165,7 +156,7 @@ class _SellerOrderCardState extends ConsumerState<SellerOrderCard> {
                       },
                     ),
               )
-            else if (widget.order.status == 'en_preparacion')
+            else if (widget.order.status == OrderStatus.en_preparacion.name)
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -200,15 +191,9 @@ class _SellerOrderCardState extends ConsumerState<SellerOrderCard> {
   }
 
   Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'pagado':
-        return Colors.green;
-      case 'en_preparacion':
-        return Colors.deepOrange;
-      case 'listo_para_entrega':
-        return Colors.orangeAccent;
-      default:
-        return Colors.grey;
-    }
+    if (status == OrderStatus.pagado.name) return Colors.green;
+    if (status == OrderStatus.en_preparacion.name) return Colors.deepOrange;
+    if (status == OrderStatus.listo_para_entrega.name) return Colors.orangeAccent;
+    return Colors.grey;
   }
 }
