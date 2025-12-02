@@ -1,5 +1,3 @@
-// lib/services/firestore_service.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:pideqr/core/models/user_model.dart';
 import '../core/models/producto.dart';
@@ -18,6 +16,34 @@ class FirestoreService {
         .map((snapshot) => Tienda.fromMap(snapshot.data() ?? {}, snapshot.id));
   }
 
+  Stream<List<Tienda>> streamAllStores() {
+    return _db.collection('tiendas').snapshots().map((snapshot) =>
+        snapshot.docs.map((doc) => Tienda.fromMap(doc.data(), doc.id)).toList());
+  }
+
+  Future<void> updateStoreName(String tiendaId, String newName) {
+    return _db.collection('tiendas').doc(tiendaId).update({'name': newName});
+  }
+
+  Future<void> createStore(String name) {
+    return _db.collection('tiendas').add({'name': name});
+  }
+
+  // --- NUEVA FUNCIÓN PARA ELIMINAR TIENDAS Y SUS PRODUCTOS ---
+  Future<void> deleteStore(String tiendaId) async {
+    final storeRef = _db.collection('tiendas').doc(tiendaId);
+    final productosSnapshot = await storeRef.collection('productos').get();
+
+    final WriteBatch batch = _db.batch();
+
+    for (final doc in productosSnapshot.docs) {
+      batch.delete(doc.reference);
+    }
+    
+    await batch.commit();
+    await storeRef.delete();
+  }
+
   Stream<List<Producto>> streamProductosPorTienda(String tiendaId) {
     return _db
         .collection('tiendas')
@@ -27,6 +53,15 @@ class FirestoreService {
         .map((snapshot) => snapshot.docs
             .map((doc) => Producto.fromMap(doc.data(), doc.id))
             .toList());
+  }
+
+  Future<void> upsertProduct({
+    required String tiendaId,
+    String? productoId,
+    required Map<String, dynamic> data,
+  }) {
+    final docRef = _db.collection('tiendas').doc(tiendaId).collection('productos').doc(productoId);
+    return docRef.set(data, SetOptions(merge: true));
   }
 
   Stream<Pedido> streamOrder(String orderId) {
@@ -77,6 +112,24 @@ class FirestoreService {
         .map((snapshot) {
       if (snapshot.docs.isEmpty) return null;
       return UserModel.fromFirestore(snapshot.docs.first.data(), snapshot.docs.first.id);
+    });
+  }
+
+  Stream<List<UserModel>> streamAllUsers() {
+    return _db.collection('users').snapshots().map((snapshot) => snapshot.docs
+        .map((doc) => UserModel.fromFirestore(doc.data(), doc.id))
+        .toList());
+  }
+
+  Future<void> updateUserRole(String userId, UserRole newRole) {
+    return _db.collection('users').doc(userId).update({
+      'role': newRole.name,
+    });
+  }
+
+  Future<void> assignStoreToSeller(String userId, String? storeId) {
+    return _db.collection('users').doc(userId).update({
+      'tiendaId': storeId,
     });
   }
 
@@ -137,7 +190,6 @@ class FirestoreService {
     return _db.collection('users').doc(userId).update({'name': newName});
   }
 
-  // --- FUNCIÓN DE TRANSACCIÓN CORREGIDA ---
   Future<String> placeOrderAndUpdateStock({
     required Pedido pedido,
     required List<PedidoItem> items,
@@ -145,40 +197,29 @@ class FirestoreService {
     return _db.runTransaction<String>((transaction) async {
       final pedidoRef = _db.collection('pedidos').doc();
       final List<Map<String, dynamic>> stockUpdates = [];
-
-      // 1. FASE DE LECTURA: Leer todos los documentos y verificar stock
       for (final item in items) {
         final productoRef = _db.collection('tiendas').doc(pedido.tiendaId).collection('productos').doc(item.productId);
         final productoDoc = await transaction.get(productoRef);
-
         if (!productoDoc.exists) {
           throw Exception("El producto ${item.productName} ya no existe.");
         }
-
         final currentStock = productoDoc.data()!['stock'] as int;
         if (currentStock < item.quantity) {
           throw Exception("No hay suficiente stock para ${item.productName}. Solo quedan $currentStock.");
         }
-
-        // Guardar la operación de escritura para después
         stockUpdates.add({
           'ref': productoRef,
           'newStock': currentStock - item.quantity,
         });
       }
-
-      // 2. FASE DE ESCRITURA: Si todas las lecturas fueron exitosas, aplicar los cambios
       transaction.set(pedidoRef, pedido.toMap());
-
       for (var update in stockUpdates) {
         transaction.update(update['ref'] as DocumentReference, {'stock': update['newStock']});
       }
-
       for (var item in items) {
         final itemRef = pedidoRef.collection('items').doc();
         transaction.set(itemRef, item.toMap());
       }
-
       return pedidoRef.id;
     });
   }

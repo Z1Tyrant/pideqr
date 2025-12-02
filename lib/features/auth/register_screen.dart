@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/models/user_model.dart'; // Importa el enum UserRole
+import 'package:firebase_auth/firebase_auth.dart';
 import 'auth_providers.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -13,60 +13,56 @@ class RegisterScreen extends ConsumerStatefulWidget {
 }
 
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
-  // Controladores para capturar la data del formulario
+  final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController(); // <-- NUEVO CONTROLADOR
   final _nameController = TextEditingController();
-  
-  // Estado para el selector de rol. Por defecto, es 'cliente'.
-  UserRole _selectedRole = UserRole.cliente; 
   bool _isLoading = false;
 
   Future<void> _register() async {
-    // Validación básica
-    if (_emailController.text.isEmpty || _passwordController.text.isEmpty || _nameController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, rellena todos los campos.'), backgroundColor: Colors.orange),
-      );
+    if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
-      // 1. Acceder al servicio de autenticación
       final authService = ref.read(authServiceProvider);
-
-      // 2. Llamada al servicio para crear el usuario en Auth y Firestore
       await authService.registerWithEmail(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
         name: _nameController.text.trim(),
-        role: _selectedRole, // Usa el rol seleccionado por el Dropdown
       );
 
-      // 3. Si es exitoso, volvemos a la pantalla de login/home
-      if (!mounted) return; // <-- CORRECCIÓN APLICADA
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Registro exitoso como ${_selectedRole.toString().split('.').last}.')),
+        const SnackBar(content: Text('¡Registro exitoso! Ya puedes iniciar sesión.')),
       );
-      Navigator.of(context).pop(); 
+      Navigator.of(context).pop();
 
-    } catch (e) {
-      if (!mounted) return; // <-- CORRECCIÓN APLICADA
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      String message;
+      switch (e.code) {
+        case 'email-already-in-use':
+          message = 'Este correo electrónico ya está registrado.';
+          break;
+        case 'weak-password':
+          message = 'La contraseña es muy débil (mínimo 6 caracteres).';
+          break;
+        case 'invalid-email':
+          message = 'El formato del correo electrónico no es válido.';
+          break;
+        default:
+          message = 'Ocurrió un error inesperado al registrar.';
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al registrar: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
       );
     } finally {
-      if (mounted) { // <-- CORRECCIÓN ADICIONAL POR BUENA PRÁCTICA
-        setState(() {
-          _isLoading = false;
-        });
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -75,6 +71,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose(); // <-- AÑADIDO A DISPOSE
     _nameController.dispose();
     super.dispose();
   }
@@ -83,84 +80,60 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Registrar Nuevo Usuario')),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
-        child: ListView(
-          children: <Widget>[
-            // Campo de Nombre
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Nombre Completo',
-                border: OutlineInputBorder(),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: <Widget>[
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(labelText: 'Nombre Completo', border: OutlineInputBorder()),
+                validator: (value) => (value == null || value.trim().isEmpty) ? 'Por favor, ingresa tu nombre' : null,
               ),
-            ),
-            const SizedBox(height: 16.0),
-            
-            // Campo de Correo
-            TextField(
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: 'Correo Electrónico',
-                border: OutlineInputBorder(),
+              const SizedBox(height: 16.0),
+              TextFormField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(labelText: 'Correo Electrónico', border: OutlineInputBorder()),
+                validator: (value) => (value == null || !value.contains('@')) ? 'Ingresa un correo válido' : null,
               ),
-            ),
-            const SizedBox(height: 16.0),
-            
-            // Campo de Contraseña
-            TextField(
-              controller: _passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Contraseña (mínimo 6 caracteres)',
-                border: OutlineInputBorder(),
+              const SizedBox(height: 16.0),
+              TextFormField(
+                controller: _passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Contraseña', border: OutlineInputBorder()),
+                validator: (value) => (value == null || value.length < 6) ? 'La contraseña debe tener al menos 6 caracteres' : null,
               ),
-            ),
-            const SizedBox(height: 32.0),
-
-            // Selector de Rol (DIFICULTAD: El proyecto lo requiere)
-            const Text('Selecciona tu Rol:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            DropdownButton<UserRole>(
-              isExpanded: true,
-              value: _selectedRole,
-              onChanged: (UserRole? newValue) {
-                if (newValue != null) {
-                  setState(() {
-                    _selectedRole = newValue;
-                  });
-                }
-              },
-              // Mapea solo los roles que el usuario puede elegir al registrarse (excluyendo admin/desconocido)
-              items: UserRole.values
-                  .where((role) => role != UserRole.admin && role != UserRole.desconocido)
-                  .map<DropdownMenuItem<UserRole>>((UserRole role) {
-                return DropdownMenuItem<UserRole>(
-                  value: role,
-                  // Muestra el nombre del rol en mayúsculas (CLIENTE, VENDEDOR)
-                  child: Text(role.toString().split('.').last.toUpperCase()), 
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 32.0),
-
-            // Botón de Registro
-            SizedBox(
-              width: double.infinity,
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : ElevatedButton(
-                      onPressed: _register,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+              const SizedBox(height: 16.0),
+              // --- NUEVO CAMPO PARA CONFIRMAR CONTRASEÑA ---
+              TextFormField(
+                controller: _confirmPasswordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Confirmar Contraseña', border: OutlineInputBorder()),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Por favor, confirma tu contraseña';
+                  }
+                  if (value != _passwordController.text) {
+                    return 'Las contraseñas no coinciden';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 32.0),
+              SizedBox(
+                width: double.infinity,
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : ElevatedButton(
+                        onPressed: _register,
+                        style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+                        child: const Text('Registrarse', style: TextStyle(fontSize: 18)),
                       ),
-                      child: const Text(
-                        'Registrarse y Continuar',
-                        style: TextStyle(fontSize: 18),
-                      ),
-                    ),
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );

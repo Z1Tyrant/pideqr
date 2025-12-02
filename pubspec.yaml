@@ -18,6 +18,7 @@ dependencies:
   cloud_firestore: ^5.1.0
   firebase_auth: ^5.1.2
   firebase_core: ^3.2.0
+  firebase_storage: ^12.1.0  # <-- NUEVA DEPENDENCIA
 
   # Manejo de Estado
   flutter_riverpod: ^2.5.1
@@ -29,9 +30,12 @@ dependencies:
   intl: ^0.19.0
   cupertino_icons: ^1.0.8
 
-  # Impresión
+  # Impresión y PDF
   printing: ^5.12.0
   pdf: ^3.10.8
+
+  # Selector de Imágenes
+  image_picker: ^1.1.2     # <-- NUEVA DEPENDENCIA
 
 dev_dependencies:
   flutter_test:
@@ -39,15 +43,13 @@ dev_dependencies:
   
   flutter_lints: ^4.0.0
 
-  # --- DEPENDENCIA PARA GENERAR ICONOS ---
   flutter_launcher_icons: ^0.13.1
 
-# --- CONFIGURACIÓN DEL GENERADOR DE ICONOS ---
 flutter_launcher_icons:
-  android: true # Le decimos que genere para Android
-  image_path: "assets/icon/foreground.png" # <-- CAMBIA ESTO por la ruta a tu logo
-  adaptive_icon_background: "#263238" # <-- CAMBIA ESTO por tu color de fondo (ej: #FFFFFF para blanco)
-  adaptive_icon_foreground: "assets/icon/foreground.png" # <-- CAMBIA ESTO por la ruta a tu logo (la misma de arriba)
+  android: true
+  image_path: "assets/icon/foreground.png"
+  adaptive_icon_background: "#263238"
+  adaptive_icon_foreground: "assets/icon/foreground.png"
 
 flutter:
   uses-material-design: true

@@ -25,7 +25,6 @@ final currentTiendaIdProvider =
   CurrentTiendaIdNotifier.new,
 );
 
-// --- PROVIDER DE DETALLES DE LA TIENDA CORREGIDO ---
 final tiendaDetailsProvider = StreamProvider.autoDispose.family<Tienda, String>((ref, tiendaId) {
   final firestoreService = ref.watch(firestoreServiceProvider);
   if (tiendaId.isEmpty) {
@@ -34,8 +33,8 @@ final tiendaDetailsProvider = StreamProvider.autoDispose.family<Tienda, String>(
   return firestoreService.streamTienda(tiendaId);
 });
 
-final productosStreamProvider = StreamProvider.autoDispose<List<Producto>>((ref) {
-  final tiendaId = ref.watch(currentTiendaIdProvider);
+// --- PRODUCTOS STREAM PROVIDER CORREGIDO ---
+final productosStreamProvider = StreamProvider.autoDispose.family<List<Producto>, String>((ref, tiendaId) {
   if (tiendaId.isEmpty) {
     return Stream.value([]);
   }

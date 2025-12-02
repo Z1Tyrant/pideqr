@@ -14,7 +14,9 @@ class CartScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final carrito = ref.watch(orderNotifierProvider);
     final orderNotifier = ref.read(orderNotifierProvider.notifier);
-    final productosAsync = ref.watch(productosStreamProvider);
+    // --- LÓGICA DE PROVIDER CORREGIDA ---
+    final tiendaId = carrito.currentTiendaId ?? '';
+    final productosAsync = ref.watch(productosStreamProvider(tiendaId));
 
     return Scaffold(
       appBar: AppBar(

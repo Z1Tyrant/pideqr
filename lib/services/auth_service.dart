@@ -1,5 +1,3 @@
-// lib/services/auth_service.dart
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/models/user_model.dart';
@@ -19,11 +17,11 @@ class AuthService {
     return null;
   }
 
+  // --- FUNCIÓN DE REGISTRO SIMPLIFICADA ---
   Future<UserModel> registerWithEmail({
     required String email,
     required String password,
     required String name,
-    required UserRole role,
   }) async {
     try {
       final userCredential = await _auth.createUserWithEmailAndPassword(
@@ -31,11 +29,18 @@ class AuthService {
         password: password,
       );
       final uid = userCredential.user!.uid;
-      final newUser = UserModel(uid: uid, email: email, name: name, role: role);
+
+      // El rol se asigna como 'cliente' por defecto
+      final newUser = UserModel(
+        uid: uid,
+        email: email,
+        name: name,
+        role: UserRole.cliente, 
+      );
+
       await _userCollection.doc(uid).set(newUser.toMap());
       return newUser;
-    } on FirebaseAuthException catch (e) {
-      // --- CORREGIDO: Dejamos que el error original de Firebase fluya ---
+    } on FirebaseAuthException {
       rethrow;
     } catch (e) {
       throw Exception('Ha ocurrido un error inesperado al registrar.');
@@ -53,8 +58,7 @@ class AuthService {
       );
       final uid = userCredential.user!.uid;
       return await getUserData(uid);
-    } on FirebaseAuthException catch (e) {
-      // --- CORREGIDO: Dejamos que el error original de Firebase fluya ---
+    } on FirebaseAuthException {
       rethrow;
     } catch (e) {
       throw Exception('Ha ocurrido un error inesperado al iniciar sesión.');

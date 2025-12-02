@@ -13,11 +13,10 @@ class MenuScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final productosAsyncValue = ref.watch(productosStreamProvider);
-    final carrito = ref.watch(orderNotifierProvider);
-
     // --- LÓGICA DE PROVIDER CORREGIDA ---
     final tiendaId = ref.watch(currentTiendaIdProvider);
+    final productosAsyncValue = ref.watch(productosStreamProvider(tiendaId));
+    final carrito = ref.watch(orderNotifierProvider);
     final tiendaAsyncValue = ref.watch(tiendaDetailsProvider(tiendaId));
 
     return Scaffold(
@@ -85,9 +84,8 @@ class MenuScreen extends ConsumerWidget {
           if (productos.isEmpty) {
             return const Center(child: Text('Esta tienda aún no tiene productos.'));
           }
-          // Añadimos un Padding para que el último elemento no quede oculto por el BottomAppBar
           return ListView.builder(
-            padding: const EdgeInsets.only(bottom: 80), // Espacio para el botón flotante
+            padding: const EdgeInsets.only(bottom: 80),
             itemCount: productos.length,
             itemBuilder: (context, index) {
               final producto = productos[index];
@@ -96,9 +94,8 @@ class MenuScreen extends ConsumerWidget {
           );
         },
       ),
-      // --- BARRA INFERIOR CON BOTÓN DE CARRITO ---
       bottomNavigationBar: carrito.items.isEmpty
-          ? null // No muestra nada si el carrito está vacío
+          ? null
           : BottomAppBar(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),

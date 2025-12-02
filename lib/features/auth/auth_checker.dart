@@ -1,12 +1,11 @@
-// lib/features/auth/auth_checker.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pideqr/core/models/user_model.dart';
+import 'package:pideqr/features/admin/admin_screen.dart'; // <-- NUEVA IMPORTACIÓN
 import 'package:pideqr/features/auth/auth_providers.dart';
 import 'package:pideqr/features/auth/login_screen.dart';
 import 'package:pideqr/features/orders/order_history_screen.dart';
-import 'package:pideqr/features/orders/order_provider.dart'; // Import para el carrito
+import 'package:pideqr/features/orders/order_provider.dart';
 import 'package:pideqr/features/seller/seller_screen.dart';
 import 'qr_scanner_screen.dart';
 
@@ -30,14 +29,11 @@ class HomeScreen extends ConsumerWidget {
               );
             },
           ),
-          // --- LÓGICA DE LOGOUT CORREGIDA ---
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Cerrar Sesión',
             onPressed: () {
-              // 1. Limpiamos el estado del carrito
               ref.read(orderNotifierProvider.notifier).clearCart();
-              // 2. Cerramos la sesión en Firebase
               ref.read(authServiceProvider).signOut();
             },
           )
@@ -115,11 +111,16 @@ class AuthChecker extends ConsumerWidget {
           error: (err, stack) => Scaffold(
             body: Center(child: Text('Error al cargar datos de usuario: $err')),
           ),
+          // --- LÓGICA DE REDIRECCIÓN MEJORADA ---
           data: (userModel) {
-            if (userModel?.role == UserRole.vendedor) {
-              return const SellerScreen();
-            } else {
-              return const HomeScreen();
+            switch (userModel?.role) {
+              case UserRole.admin:
+                return const AdminScreen();
+              case UserRole.vendedor:
+                return const SellerScreen();
+              case UserRole.cliente:
+              default:
+                return const HomeScreen();
             }
           },
         );
