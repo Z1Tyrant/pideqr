@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:pideqr/features/menu/menu_providers.dart';
 import 'package:pideqr/core/models/pedido.dart';
-import 'delivery_confirmation_screen.dart'; // <-- Pantalla que crearemos después
+import 'delivery_confirmation_screen.dart';
 
 class SellerLookupScannerScreen extends ConsumerStatefulWidget {
   const SellerLookupScannerScreen({super.key});
@@ -29,6 +29,7 @@ class _SellerLookupScannerScreenState extends ConsumerState<SellerLookupScannerS
 
     if (!mounted) return;
 
+    // 1. Si el pedido no existe
     if (order == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Error: Pedido no encontrado.'), backgroundColor: Colors.red),
@@ -37,22 +38,31 @@ class _SellerLookupScannerScreenState extends ConsumerState<SellerLookupScannerS
       return;
     }
 
-    if (order.status != 'pagado') {
+    // 2. Si el pedido ya fue entregado
+    if (order.status == 'entregado') {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Aviso: El pedido ya fue procesado (Estado: ${order.status})'), backgroundColor: Colors.orange),
+        const SnackBar(content: Text('Aviso: Este pedido ya fue entregado.'), backgroundColor: Colors.orange),
+      );
+      _resetScanner();
+      return;
+    }
+
+    // 3. Si el pedido NO está listo para entrega
+    if (order.status != 'listo_para_entrega') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Aviso: El pedido aún no está listo para entrega (Estado: ${order.status})'), backgroundColor: Colors.orange),
       );
       _resetScanner();
       return;
     }
     
-    // Si el pedido es válido, navegamos a la pantalla de confirmación
+    // 4. Si el pedido es válido, navegamos a la pantalla de confirmación
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => DeliveryConfirmationScreen(order: order),
       ),
     );
 
-    // Al volver de la pantalla de confirmación, cerramos el escáner
     Navigator.of(context).pop();
   }
 

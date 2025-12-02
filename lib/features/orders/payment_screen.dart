@@ -26,12 +26,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
     final carrito = ref.read(orderNotifierProvider);
     final firestoreService = ref.read(firestoreServiceProvider);
-    
-    // --- CORREGIDO: Usamos el provider correcto para obtener el usuario ---
     final user = ref.read(authStateChangesProvider).value;
     final userId = user?.uid;
-    // ------------------------------------------------------------------
-
     final tiendaId = ref.read(currentTiendaIdProvider);
 
     if (userId == null || tiendaId.isEmpty) {
@@ -44,26 +40,23 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       return;
     }
 
-    // 1. Crear el objeto Pedido
     final nuevoPedido = Pedido(
       userId: userId,
       tiendaId: tiendaId,
       total: carrito.subtotal,
       timestamp: DateTime.now(),
-      status: 'pagado', // Estado inicial
+      status: 'pagado',
     );
 
     try {
-      // 2. Guardar el pedido en Firestore
-      final newOrderId = await firestoreService.saveNewPedido(
+      // --- LLAMADA CORREGIDA ---
+      final newOrderId = await firestoreService.placeOrderAndUpdateStock(
         pedido: nuevoPedido,
         items: carrito.items,
       );
       
-      // 3. Limpiar el carrito local
       ref.read(orderNotifierProvider.notifier).clearCart();
 
-      // 4. Navegar a la pantalla de confirmación
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
@@ -74,9 +67,16 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       }
 
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al procesar el pedido: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al procesar el pedido: ${e.toString().replaceAll('Exception: ', '')}'),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(12),
+          ),
+        );
+      }
       setState(() {
         _isProcessing = false;
       });
@@ -92,7 +92,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         title: const Text('Confirmar y Pagar'),
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -103,20 +103,23 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             const SizedBox(height: 16),
             Text('Monto a pagar: \$${carrito.subtotal.toStringAsFixed(0)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const Spacer(),
-            if (_isProcessing)
-              const Center(child: CircularProgressIndicator())
-            else
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: _processPayment,
-                child: const Text('Pagar Ahora (Simulación)', style: TextStyle(fontSize: 18)),
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: _isProcessing
+                  ? const Center(child: CircularProgressIndicator())
+                  : ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: _processPayment,
+                      child: const Text('Pagar Ahora (Simulación)', style: TextStyle(fontSize: 18)),
+                    ),
               ),
-            const SizedBox(height: 20),
+            ),
           ],
         ),
       ),

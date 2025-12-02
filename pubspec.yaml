@@ -5,36 +5,37 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.9.2
+  sdk: '>=3.0.0 <4.0.0' # Rango de SDK más flexible
 
 dependencies:
   flutter:
     sdk: flutter
 
   # Dependencias para Firebase (Backend)
-  cloud_firestore: ^6.1.0
-  firebase_auth: ^6.1.2
-  firebase_core: ^4.2.1
-  flutter_riverpod: ^3.0.3
+  cloud_firestore: ^5.1.0
+  firebase_auth: ^5.1.2
+  firebase_core: ^3.2.0
+
+  # Manejo de Estado
+  flutter_riverpod: ^2.5.1
 
   # Para manejar QR
-  mobile_scanner: ^5.1.1
+  mobile_scanner: ^5.1.1 # Mantenemos esta versión por ahora si funciona bien
   qr_flutter: ^4.1.0
   
-  # Para formateo de fechas y números
-  intl: ^0.19.0 # <-- NUEVA DEPENDENCIA
+  # Para Material Design 3 y color dinámico
+  dynamic_color: ^1.8.0
 
-  # The following adds the Cupertino Icons font to your application.
+  # Para formateo de fechas y números
+  intl: ^0.19.0
+
   cupertino_icons: ^1.0.8
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
-  flutter_lints: ^6.0.0
-
-# For information on the generic Dart part of this file, see the
-# following page: https://dart.dev/tools/pub/pubspec
+  flutter_lints: ^4.0.0 # Versión actualizada
 
 flutter:
   uses-material-design: true

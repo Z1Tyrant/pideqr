@@ -9,7 +9,6 @@ import '../../services/firestore_service.dart';
 import '../auth/auth_providers.dart';
 import '../menu/menu_providers.dart'; 
 
-// --- 1. Estado del Carrito ---
 class Carrito { 
   final List<PedidoItem> items;
   final String? currentTiendaId;
@@ -33,9 +32,8 @@ class Carrito {
   }
 }
 
-// --- 2. Controlador de Lógica (OrderNotifier) ---
 class OrderNotifier extends Notifier<Carrito> { 
-   @override
+  @override
   Carrito build() {
     return Carrito(items: []);
   }
@@ -76,6 +74,25 @@ class OrderNotifier extends Notifier<Carrito> {
     }
   }
 
+  // --- NUEVA FUNCIÓN PARA DECREMENTAR ---
+  void decrementItemQuantity(String productId) {
+    final existingIndex = state.items.indexWhere((item) => item.productId == productId);
+    if (existingIndex == -1) return; // No hace nada si el item no existe
+
+    final updatedItems = List<PedidoItem>.from(state.items);
+    final existingItem = updatedItems[existingIndex];
+
+    if (existingItem.quantity > 1) {
+      // Si hay más de 1, solo reduce la cantidad
+      final newItem = existingItem.copyWith(quantity: existingItem.quantity - 1);
+      updatedItems[existingIndex] = newItem;
+      state = state.copyWith(items: updatedItems);
+    } else {
+      // Si solo queda 1, elimina el producto del carrito
+      removeItemFromCart(productId);
+    }
+  }
+
   void removeItemFromCart(String productId) {
     final updatedItems = state.items.where((item) => item.productId != productId).toList();
     final newTiendaId = updatedItems.isEmpty ? null : state.currentTiendaId;
@@ -86,8 +103,6 @@ class OrderNotifier extends Notifier<Carrito> {
     state = Carrito(items: []);
   }
 }
-
-// --- 3. Providers Públicos ---
 
 final orderNotifierProvider = NotifierProvider<OrderNotifier, Carrito>(
   OrderNotifier.new,
@@ -104,13 +119,11 @@ final userOrdersProvider = StreamProvider.autoDispose<List<Pedido>>((ref) {
   return Stream.value([]);
 });
 
-// --- PROVIDER DEL VENDEDOR ACTUALIZADO ---
 final pendingOrdersProvider = StreamProvider.autoDispose<List<Pedido>>((ref) {
   final firestoreService = ref.watch(firestoreServiceProvider);
   final userModel = ref.watch(userModelProvider).value;
 
   if (userModel != null && userModel.role == UserRole.vendedor && userModel.tiendaId != null) {
-    // Llama a la nueva función que obtiene pedidos pendientes
     return firestoreService.streamPendingOrdersForStore(userModel.tiendaId!);
   }
   

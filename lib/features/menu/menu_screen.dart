@@ -15,16 +15,17 @@ class MenuScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final productosAsyncValue = ref.watch(productosStreamProvider);
     final carrito = ref.watch(orderNotifierProvider);
-    // --- 1. Observamos el nuevo provider de los detalles de la tienda ---
-    final tiendaAsyncValue = ref.watch(tiendaDetailsProvider);
+
+    // --- LÓGICA DE PROVIDER CORREGIDA ---
+    final tiendaId = ref.watch(currentTiendaIdProvider);
+    final tiendaAsyncValue = ref.watch(tiendaDetailsProvider(tiendaId));
 
     return Scaffold(
       appBar: AppBar(
-        // --- 2. El título ahora es dinámico ---
         title: tiendaAsyncValue.when(
-          data: (tienda) => Text(tienda.name), // Muestra el nombre de la tienda
-          loading: () => const Text('Cargando menú...'), // Muestra mientras carga
-          error: (e, st) => const Text('Menú'), // Fallback en caso de error
+          data: (tienda) => Text(tienda.name),
+          loading: () => const Text('Cargando menú...'),
+          error: (e, st) => const Text('Menú'),
         ),
         actions: [
           if (carrito.items.isNotEmpty)
@@ -84,8 +85,9 @@ class MenuScreen extends ConsumerWidget {
           if (productos.isEmpty) {
             return const Center(child: Text('Esta tienda aún no tiene productos.'));
           }
-
+          // Añadimos un Padding para que el último elemento no quede oculto por el BottomAppBar
           return ListView.builder(
+            padding: const EdgeInsets.only(bottom: 80), // Espacio para el botón flotante
             itemCount: productos.length,
             itemBuilder: (context, index) {
               final producto = productos[index];
@@ -94,6 +96,32 @@ class MenuScreen extends ConsumerWidget {
           );
         },
       ),
+      // --- BARRA INFERIOR CON BOTÓN DE CARRITO ---
+      bottomNavigationBar: carrito.items.isEmpty
+          ? null // No muestra nada si el carrito está vacío
+          : BottomAppBar(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Total: \$${carrito.subtotal.toStringAsFixed(0)}',
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.shopping_cart_checkout),
+                      label: const Text('Ver Mi Pedido'),
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (context) => const CartScreen()),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
     );
   }
 }
@@ -137,6 +165,7 @@ class ProductoTile extends ConsumerWidget {
                           content: Text('${producto.name} añadido al carrito!'),
                           behavior: SnackBarBehavior.floating, 
                           margin: const EdgeInsets.all(12),      
+                          duration: const Duration(seconds: 2),
                         ),
                       );
                     } catch (e) {
@@ -145,7 +174,8 @@ class ProductoTile extends ConsumerWidget {
                           content: Text(e.toString().replaceAll('Exception: ', '🛑 ')),
                           backgroundColor: Colors.redAccent,
                           behavior: SnackBarBehavior.floating, 
-                          margin: const EdgeInsets.all(12),      
+                          margin: const EdgeInsets.all(12),
+                          duration: const Duration(seconds: 2),
                         ),
                       );
                     }

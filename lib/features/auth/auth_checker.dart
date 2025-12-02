@@ -6,21 +6,16 @@ import 'package:pideqr/core/models/user_model.dart';
 import 'package:pideqr/features/auth/auth_providers.dart';
 import 'package:pideqr/features/auth/login_screen.dart';
 import 'package:pideqr/features/orders/order_history_screen.dart';
+import 'package:pideqr/features/orders/order_provider.dart'; // Import para el carrito
 import 'package:pideqr/features/seller/seller_screen.dart';
 import 'qr_scanner_screen.dart';
 
-// La HomeScreen del cliente se mantiene igual
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
   
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userAsync = ref.watch(userModelProvider);
-    final role = userAsync.when(
-      data: (user) => user?.role.toString().split('.').last ?? 'Desconocido',
-      loading: () => 'Cargando...',
-      error: (e, st) => 'Error',
-    );
 
     return Scaffold(
       appBar: AppBar(
@@ -35,10 +30,16 @@ class HomeScreen extends ConsumerWidget {
               );
             },
           ),
+          // --- LÓGICA DE LOGOUT CORREGIDA ---
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Cerrar Sesión',
-            onPressed: () => ref.read(authServiceProvider).signOut(),
+            onPressed: () {
+              // 1. Limpiamos el estado del carrito
+              ref.read(orderNotifierProvider.notifier).clearCart();
+              // 2. Cerramos la sesión en Firebase
+              ref.read(authServiceProvider).signOut();
+            },
           )
         ],
       ),
@@ -46,16 +47,23 @@ class HomeScreen extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('Bienvenido, rol: ${role.toUpperCase()}'),
+            userAsync.when(
+              data: (user) => Text(
+                '¡Hola, ${user?.name ?? 'Usuario'}!',
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              loading: () => const Text('Cargando...'),
+              error: (e, st) => const Text('Bienvenido'),
+            ),
             const SizedBox(height: 32),
             const Text(
-              'Escanea el QR de la tienda para empezar el pedido:', 
+              'Escanea el QR de la tienda para empezar el pedido:',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 16),
             ),
             const SizedBox(height: 32),
             SizedBox(
-              width: 150, 
+              width: 150,
               height: 150,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
@@ -80,13 +88,11 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-// --- AUTH CHECKER CORREGIDO ---
 class AuthChecker extends ConsumerWidget {
   const AuthChecker({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Observamos el estado de autenticación básico de Firebase.
     final authState = ref.watch(authStateChangesProvider);
 
     return authState.when(
@@ -97,12 +103,10 @@ class AuthChecker extends ConsumerWidget {
         body: Center(child: Text('Error de autenticación: $error')),
       ),
       data: (user) {
-        // Si el usuario de Firebase es null, vamos al Login.
         if (user == null) {
           return const LoginScreen();
         }
 
-        // Si hay un usuario, ahora SÍ observamos el userModelProvider para decidir a dónde ir.
         final userModelAsync = ref.watch(userModelProvider);
         return userModelAsync.when(
           loading: () => const Scaffold(

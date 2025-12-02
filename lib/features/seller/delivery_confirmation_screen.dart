@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:pideqr/core/models/pedido.dart';
+import 'package:pideqr/features/auth/auth_providers.dart';
 import 'package:pideqr/features/menu/menu_providers.dart';
+import 'package:pideqr/features/orders/order_details_screen.dart';
 
 class DeliveryConfirmationScreen extends ConsumerStatefulWidget {
   final Pedido order;
@@ -37,56 +39,78 @@ class _DeliveryConfirmationScreenState extends ConsumerState<DeliveryConfirmatio
       const SnackBar(content: Text('¡Pedido marcado como entregado!'), backgroundColor: Colors.green),
     );
 
-    // Cerramos la pantalla de confirmación (vuelve al escáner, que luego se cierra solo)
     Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
-    final formattedDate = DateFormat('dd/MM, hh:mm a').format(widget.order.timestamp);
-    final displayId = '#...${widget.order.id!.substring(widget.order.id!.length - 6)}';
+    final customerData = ref.watch(userDataProvider(widget.order.userId));
+    final orderItems = ref.watch(orderItemsProvider(widget.order.id!));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Confirmar Entrega')),
       body: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // Resumen del pedido
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Pedido $displayId', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
-                const Divider(height: 32),
-                Text('Fecha: $formattedDate'),
-                Text('Total: \$${widget.order.total.toStringAsFixed(0)}'),
-                Text('Estado actual: ${widget.order.status}', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-              ],
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Pedido #${widget.order.id!.substring(widget.order.id!.length - 6)}', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+                  customerData.when(
+                    data: (customer) => Text('Cliente: ${customer?.name ?? 'No especificado'}', style: Theme.of(context).textTheme.titleMedium),
+                    loading: () => const Text('Cargando cliente...'),
+                    error: (e, st) => const SizedBox.shrink(),
+                  ),
+                  const Divider(height: 24),
+                ],
+              ),
             ),
-
-            // Slider de confirmación
-            Column(
-              children: [
-                const Text('Desliza para confirmar la entrega', style: TextStyle(fontSize: 16)),
-                const SizedBox(height: 16),
-                SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    trackHeight: 60.0,
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 30.0),
-                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 40.0),
-                    activeTrackColor: Colors.green.withOpacity(0.5),
-                    inactiveTrackColor: Colors.grey.shade300,
-                    thumbColor: Colors.green,
-                  ),
-                  child: Slider(
-                    value: _sliderValue,
-                    onChanged: _onSliderChanged,
-                    min: 0.0,
-                    max: 1.0,
-                  ),
+            const Text('Productos a entregar:', style: TextStyle(fontWeight: FontWeight.bold)),
+            Expanded(
+              child: orderItems.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, st) => const Center(child: Text('No se pudieron cargar los productos.')),
+                data: (items) => ListView.builder(
+                  itemCount: items.length,
+                  itemBuilder: (context, index) {
+                    final item = items[index];
+                    return ListTile(
+                      title: Text(item.productName),
+                      trailing: Text('x${item.quantity}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    );
+                  },
                 ),
-              ],
+              ),
+            ),
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16.0),
+                child: Column(
+                  children: [
+                    const Text('Desliza para confirmar la entrega', style: TextStyle(fontSize: 16)),
+                    const SizedBox(height: 16),
+                    SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        trackHeight: 60.0,
+                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 30.0),
+                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 40.0),
+                        activeTrackColor: Colors.green.withOpacity(0.5),
+                        inactiveTrackColor: Colors.grey.shade300,
+                        thumbColor: Colors.green,
+                      ),
+                      child: Slider(
+                        value: _sliderValue,
+                        onChanged: _onSliderChanged,
+                        min: 0.0,
+                        max: 1.0,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),

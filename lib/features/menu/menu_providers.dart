@@ -3,14 +3,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/firestore_service.dart';
 import '../../core/models/producto.dart';
-import '../../core/models/tienda.dart'; // <-- NUEVA IMPORTACIÓN
+import '../../core/models/tienda.dart';
 
-// Provider para exponer la instancia de FirestoreService
 final firestoreServiceProvider = Provider<FirestoreService>((ref) {
   return FirestoreService();
 });
-
-// --- Provider para la Tienda Actual ---
 
 class CurrentTiendaIdNotifier extends Notifier<String> {
   @override
@@ -28,28 +25,20 @@ final currentTiendaIdProvider =
   CurrentTiendaIdNotifier.new,
 );
 
-// --- NUEVO PROVIDER PARA LOS DETALLES DE LA TIENDA ---
-final tiendaDetailsProvider = StreamProvider.autoDispose<Tienda>((ref) {
-  final tiendaId = ref.watch(currentTiendaIdProvider);
+// --- PROVIDER DE DETALLES DE LA TIENDA CORREGIDO ---
+final tiendaDetailsProvider = StreamProvider.autoDispose.family<Tienda, String>((ref, tiendaId) {
   final firestoreService = ref.watch(firestoreServiceProvider);
-
-  if (tiendaId.isNotEmpty) {
-    return firestoreService.streamTienda(tiendaId);
+  if (tiendaId.isEmpty) {
+    return Stream.error('ID de la tienda no puede estar vacío');
   }
-  // Devolvemos un stream que nunca emite nada si no hay ID
-  return Stream.value(Tienda(id: '', name: 'Cargando...')); 
+  return firestoreService.streamTienda(tiendaId);
 });
-// -----------------------------------------------------
 
-// StreamProvider para obtener la lista de productos en tiempo real
 final productosStreamProvider = StreamProvider.autoDispose<List<Producto>>((ref) {
   final tiendaId = ref.watch(currentTiendaIdProvider);
-
   if (tiendaId.isEmpty) {
     return Stream.value([]);
   }
-
   final firestoreService = ref.watch(firestoreServiceProvider);
-
   return firestoreService.streamProductosPorTienda(tiendaId);
 });
