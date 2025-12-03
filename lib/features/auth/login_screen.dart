@@ -2,7 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Importar para acceder a FirebaseAuthException
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:pideqr/core/utils/error_translator.dart'; // <-- NUEVA IMPORTACIÓN
 import 'auth_providers.dart'; 
 import 'register_screen.dart';
 
@@ -29,30 +30,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-    } on FirebaseAuthException catch (e) { // Capturamos el error específico de Firebase
+    } on FirebaseAuthException catch (e) {
       if (!mounted) return;
 
-      // --- LÓGICA DE TRADUCCIÓN DE ERRORES ---
-      String message;
-      switch (e.code) {
-        case 'invalid-email':
-          message = 'El formato del correo electrónico no es válido.';
-          break;
-        case 'user-not-found':
-        case 'wrong-password':
-        case 'invalid-credential':
-          message = 'Correo o contraseña incorrectos. Por favor, inténtalo de nuevo.';
-          break;
-        case 'network-request-failed':
-          message = 'Error de red. Revisa tu conexión a internet.';
-          break;
-        default:
-          message = 'Ocurrió un error inesperado al iniciar sesión.';
-      }
-
+      // --- LÓGICA DE ERROR SIMPLIFICADA ---
+      final errorMessage = ErrorTranslator.getFriendlyMessage(e);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(message),
+          content: Text(errorMessage),
           backgroundColor: Colors.redAccent,
         ),
       );

@@ -1,9 +1,7 @@
-// lib/features/admin/product_management_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pideqr/core/models/producto.dart';
-import 'package:pideqr/features/admin/edit_product_screen.dart'; // <-- IMPORTACIÓN AÑADIDA
+import 'package:pideqr/features/admin/edit_product_screen.dart';
 import 'package:pideqr/features/menu/menu_providers.dart';
 
 class ProductManagementScreen extends ConsumerWidget {
@@ -35,20 +33,31 @@ class ProductManagementScreen extends ConsumerWidget {
             itemCount: productos.length,
             itemBuilder: (context, index) {
               final producto = productos[index];
-              return ListTile(
-                title: Text(producto.name),
-                subtitle: Text('Stock: ${producto.stock}'),
-                trailing: Text('\$${producto.price.toStringAsFixed(0)}'),
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => EditProductScreen(
-                        tiendaId: tiendaId,
-                        producto: producto,
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: ListTile(
+                  // --- WIDGET DE IMAGEN AÑADIDO ---
+                  leading: producto.imageUrl != null
+                      ? SizedBox(
+                          width: 50,
+                          height: 50,
+                          child: Image.network(producto.imageUrl!, fit: BoxFit.cover),
+                        )
+                      : const SizedBox(width: 50, height: 50, child: Icon(Icons.image_not_supported)),
+                  title: Text(producto.name),
+                  subtitle: Text('Stock: ${producto.stock}'),
+                  trailing: Text('\$${producto.price.toStringAsFixed(0)}'),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => EditProductScreen(
+                          tiendaId: tiendaId,
+                          producto: producto,
+                        ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               );
             },
           );

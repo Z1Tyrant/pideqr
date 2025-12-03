@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:pideqr/core/utils/error_translator.dart'; // <-- NUEVA IMPORTACIÓN
 import 'auth_providers.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -16,7 +17,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController(); // <-- NUEVO CONTROLADOR
+  final _confirmPasswordController = TextEditingController();
   final _nameController = TextEditingController();
   bool _isLoading = false;
 
@@ -43,22 +44,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
-      String message;
-      switch (e.code) {
-        case 'email-already-in-use':
-          message = 'Este correo electrónico ya está registrado.';
-          break;
-        case 'weak-password':
-          message = 'La contraseña es muy débil (mínimo 6 caracteres).';
-          break;
-        case 'invalid-email':
-          message = 'El formato del correo electrónico no es válido.';
-          break;
-        default:
-          message = 'Ocurrió un error inesperado al registrar.';
-      }
+
+      // --- LÓGICA DE ERROR SIMPLIFICADA ---
+      final errorMessage = ErrorTranslator.getFriendlyMessage(e);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
+        SnackBar(content: Text(errorMessage), backgroundColor: Colors.redAccent),
       );
     } finally {
       if (mounted) {
@@ -71,7 +61,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _confirmPasswordController.dispose(); // <-- AÑADIDO A DISPOSE
+    _confirmPasswordController.dispose();
     _nameController.dispose();
     super.dispose();
   }
@@ -106,7 +96,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 validator: (value) => (value == null || value.length < 6) ? 'La contraseña debe tener al menos 6 caracteres' : null,
               ),
               const SizedBox(height: 16.0),
-              // --- NUEVO CAMPO PARA CONFIRMAR CONTRASEÑA ---
               TextFormField(
                 controller: _confirmPasswordController,
                 obscureText: true,

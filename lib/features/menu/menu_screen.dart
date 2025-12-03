@@ -13,7 +13,6 @@ class MenuScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // --- LÓGICA DE PROVIDER CORREGIDA ---
     final tiendaId = ref.watch(currentTiendaIdProvider);
     final productosAsyncValue = ref.watch(productosStreamProvider(tiendaId));
     final carrito = ref.watch(orderNotifierProvider);
@@ -33,27 +32,16 @@ class MenuScreen extends ConsumerWidget {
               children: [
                 IconButton(
                   icon: const Icon(Icons.shopping_cart),
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (context) => const CartScreen()),
-                    );
-                  },
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CartScreen())),
                 ),
                 Positioned(
                   top: 8,
                   right: 8,
                   child: Container(
                     padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                    decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(10)),
                     constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                    child: Text(
-                      '${carrito.totalItems}',
-                      style: const TextStyle(color: Colors.white, fontSize: 10),
-                      textAlign: TextAlign.center,
-                    ),
+                    child: Text('${carrito.totalItems}', style: const TextStyle(color: Colors.white, fontSize: 10), textAlign: TextAlign.center),
                   ),
                 ),
               ],
@@ -61,19 +49,13 @@ class MenuScreen extends ConsumerWidget {
           else
             IconButton(
               icon: const Icon(Icons.shopping_cart_outlined),
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('El carrito está vacío. Añade productos primero.')),
-                );
-              },
+              onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('El carrito está vacío. Añade productos primero.')),
+              ),
             ),
           IconButton(
             icon: const Icon(Icons.home),
-            onPressed: () {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (context) => const HomeScreen()),
-              );
-            },
+            onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => const HomeScreen())),
           ),
         ],
       ),
@@ -85,12 +67,9 @@ class MenuScreen extends ConsumerWidget {
             return const Center(child: Text('Esta tienda aún no tiene productos.'));
           }
           return ListView.builder(
-            padding: const EdgeInsets.only(bottom: 80),
+            padding: const EdgeInsets.only(bottom: 80, top: 8),
             itemCount: productos.length,
-            itemBuilder: (context, index) {
-              final producto = productos[index];
-              return ProductoTile(producto: producto);
-            },
+            itemBuilder: (context, index) => ProductoTile(producto: productos[index]),
           );
         },
       ),
@@ -98,22 +77,15 @@ class MenuScreen extends ConsumerWidget {
           ? null
           : BottomAppBar(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                padding: const EdgeInsets.all(16.0),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Total: \$${carrito.subtotal.toStringAsFixed(0)}',
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
+                    Text('Total: \$${carrito.subtotal.toStringAsFixed(0)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                     ElevatedButton.icon(
                       icon: const Icon(Icons.shopping_cart_checkout),
                       label: const Text('Ver Mi Pedido'),
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (context) => const CartScreen()),
-                        );
-                      },
+                      onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CartScreen())),
                     ),
                   ],
                 ),
@@ -123,6 +95,7 @@ class MenuScreen extends ConsumerWidget {
   }
 }
 
+// --- WIDGET DE PRODUCTO TOTALMENTE REDISEÑADO ---
 class ProductoTile extends ConsumerWidget {
   final Producto producto;
   const ProductoTile({required this.producto, super.key});
@@ -133,52 +106,65 @@ class ProductoTile extends ConsumerWidget {
     final tiendaId = ref.watch(currentTiendaIdProvider);
     final bool isOutOfStock = producto.stock <= 0;
 
-    return ListTile(
-      isThreeLine: true,
-      title: Text(producto.name),
-      subtitle: Text('${producto.description}\nStock disponible: ${producto.stock}'),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('\$${producto.price.toStringAsFixed(0)}'),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: Icon(
-              Icons.add_circle,
-              color: isOutOfStock ? Colors.grey : Colors.indigo,
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Row(
+          children: [
+            // --- Columna Izquierda: Imagen ---
+            SizedBox(
+              width: 80,
+              height: 80,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: producto.imageUrl != null
+                    ? Image.network(producto.imageUrl!, fit: BoxFit.cover, errorBuilder: (c, e, st) => const Icon(Icons.error))
+                    : const Icon(Icons.image_not_supported, color: Colors.grey, size: 40),
+              ),
             ),
-            onPressed: isOutOfStock
-                ? null
-                : () {
+            const SizedBox(width: 16),
+            // --- Columna Central: Texto (expandida) ---
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(producto.name, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text(producto.description, style: Theme.of(context).textTheme.bodyMedium, maxLines: 3, overflow: TextOverflow.ellipsis),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            // --- Columna Derecha: Precio y Botón ---
+            Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text('\$${producto.price.toStringAsFixed(0)}', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                IconButton(
+                  icon: Icon(
+                    isOutOfStock ? Icons.remove_shopping_cart_outlined : Icons.add_shopping_cart,
+                    color: isOutOfStock ? Colors.grey : Theme.of(context).colorScheme.primary,
+                    size: 30,
+                  ),
+                  onPressed: isOutOfStock ? null : () {
                     try {
-                      orderNotifier.addItemToCart(
-                        producto: producto,
-                        quantity: 1,
-                        tiendaId: tiendaId,
-                      );
-
+                      orderNotifier.addItemToCart(producto: producto, quantity: 1, tiendaId: tiendaId);
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('${producto.name} añadido al carrito!'),
-                          behavior: SnackBarBehavior.floating, 
-                          margin: const EdgeInsets.all(12),      
-                          duration: const Duration(seconds: 2),
-                        ),
+                        SnackBar(content: Text('${producto.name} añadido al carrito'), duration: const Duration(seconds: 1)),
                       );
                     } catch (e) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(e.toString().replaceAll('Exception: ', '🛑 ')),
-                          backgroundColor: Colors.redAccent,
-                          behavior: SnackBarBehavior.floating, 
-                          margin: const EdgeInsets.all(12),
-                          duration: const Duration(seconds: 2),
-                        ),
+                        SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: Colors.redAccent),
                       );
                     }
                   },
-          ),
-        ],
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

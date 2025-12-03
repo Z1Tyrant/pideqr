@@ -7,6 +7,7 @@ import 'package:pideqr/features/menu/menu_providers.dart';
 import 'package:pideqr/core/models/producto.dart';
 import 'order_provider.dart';
 
+// Screen 1: The Shopping Cart
 class CartScreen extends ConsumerWidget {
   const CartScreen({super.key});
 
@@ -14,7 +15,6 @@ class CartScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final carrito = ref.watch(orderNotifierProvider);
     final orderNotifier = ref.read(orderNotifierProvider.notifier);
-    // --- LÓGICA DE PROVIDER CORREGIDA ---
     final tiendaId = carrito.currentTiendaId ?? '';
     final productosAsync = ref.watch(productosStreamProvider(tiendaId));
 
@@ -25,8 +25,30 @@ class CartScreen extends ConsumerWidget {
           if (carrito.items.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.delete_sweep, color: Colors.red),
-              onPressed: () => orderNotifier.clearCart(),
-            )
+              tooltip: 'Vaciar Carrito',
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Confirmar'),
+                    content: const Text('¿Seguro que quieres vaciar el carrito?'),
+                    actions: [
+                      TextButton(
+                        child: const Text('No'),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
+                      TextButton(
+                        child: const Text('Sí, Vaciar', style: TextStyle(color: Colors.red)),
+                        onPressed: () {
+                          orderNotifier.clearCart();
+                          Navigator.of(ctx).pop();
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
         ],
       ),
       body: carrito.items.isEmpty
@@ -34,40 +56,53 @@ class CartScreen extends ConsumerWidget {
               child: Text('Tu carrito está vacío', style: TextStyle(fontSize: 18, color: Colors.grey)),
             )
           : ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: carrito.items.length,
               itemBuilder: (context, index) {
                 final item = carrito.items[index];
-                
-                final Producto? productoOriginal = productosAsync.when(
-                  data: (productos) => productos.firstWhere((p) => p.id == item.productId, orElse: () => null as Producto),
+                final productoOriginal = productosAsync.when(
+                  data: (productos) {
+                    try {
+                      return productos.firstWhere((p) => p.id == item.productId);
+                    } catch (e) {
+                      return null;
+                    }
+                  },
                   loading: () => null,
-                  error: (e, st) => null,
+                  error: (_, __) => null,
                 );
 
-                return ListTile(
-                  title: Text(item.productName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text('Subtotal: \$${item.subtotal.toStringAsFixed(0)}'),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.remove_circle_outline),
-                        onPressed: () {
-                          orderNotifier.decrementItemQuantity(item.productId);
-                        },
+                return Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.all(12),
+                    leading: SizedBox(
+                      width: 70,
+                      height: 70,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: productoOriginal?.imageUrl != null
+                            ? Image.network(productoOriginal!.imageUrl!, fit: BoxFit.cover, errorBuilder: (c, e, st) => const Icon(Icons.error))
+                            : const Icon(Icons.image_not_supported, color: Colors.grey),
                       ),
-                      Text(item.quantity.toString(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      IconButton(
-                        icon: const Icon(Icons.add_circle_outline),
-                        onPressed: (productoOriginal != null && item.quantity >= productoOriginal.stock)
-                            ? null 
-                            : () {
-                                if (productoOriginal != null) {
-                                  orderNotifier.addItemToCart(producto: productoOriginal, quantity: 1, tiendaId: ref.read(currentTiendaIdProvider));
-                                }
-                              },
-                      ),
-                    ],
+                    ),
+                    title: Text(item.productName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text('Subtotal: \$${item.subtotal.toStringAsFixed(0)}'),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () => orderNotifier.decrementItemQuantity(item.productId)),
+                        Text(item.quantity.toString(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        IconButton(
+                          icon: const Icon(Icons.add_circle_outline),
+                          onPressed: (productoOriginal != null && item.quantity >= productoOriginal.stock) ? null : () {
+                            if (productoOriginal != null) {
+                              orderNotifier.addItemToCart(producto: productoOriginal, quantity: 1, tiendaId: tiendaId);
+                            }
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 );
               },
@@ -76,7 +111,7 @@ class CartScreen extends ConsumerWidget {
           ? null
           : BottomAppBar(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                padding: const EdgeInsets.all(16.0),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -84,11 +119,7 @@ class CartScreen extends ConsumerWidget {
                     ElevatedButton.icon(
                       icon: const Icon(Icons.payment),
                       label: const Text('Ir a Pagar'),
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (context) => const ConfirmOrderScreen()),
-                        );
-                      },
+                      onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ConfirmOrderScreen())),
                     ),
                   ],
                 ),
@@ -98,6 +129,7 @@ class CartScreen extends ConsumerWidget {
   }
 }
 
+// Screen 2: The Confirmation Screen (Restored)
 class ConfirmOrderScreen extends ConsumerWidget {
   const ConfirmOrderScreen({super.key});
 
@@ -106,9 +138,7 @@ class ConfirmOrderScreen extends ConsumerWidget {
     final carrito = ref.watch(orderNotifierProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Confirmar y Pagar'),
-      ),
+      appBar: AppBar(title: const Text('Confirmar y Pagar')),
       body: Column(
         children: [
           const Padding(
@@ -141,26 +171,18 @@ class ConfirmOrderScreen extends ConsumerWidget {
           ),
         ],
       ),
-      bottomNavigationBar: BottomAppBar(
+      bottomNavigationBar: SafeArea( // Use SafeArea to avoid system intrusions
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          padding: const EdgeInsets.all(16.0),
           child: Row(
             children: [
-              OutlinedButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-                child: const Text('Cancelar'),
-              ),
-              const SizedBox(width: 16), 
+              OutlinedButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
+              const SizedBox(width: 16),
               Expanded(
-                child: ElevatedButton(
-                  child: const Text('Pagar ahora', style: TextStyle(fontSize: 18)),
-                  onPressed: () {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (context) => const PaymentScreen()),
-                    );
-                  },
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.check_circle_outline),
+                  label: const Text('Pagar Ahora', style: TextStyle(fontSize: 18)),
+                  onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => const PaymentScreen())),
                 ),
               ),
             ],

@@ -45,7 +45,6 @@ class _OrderDetailsScreenState extends ConsumerState<OrderDetailsScreen> {
   Future<void> _printOrder(Pedido order, List<PedidoItem> items, BuildContext context) async {
     final doc = pw.Document();
     final customer = await ref.read(userDataProvider(order.userId).future);
-    // --- OBTENER DATOS DE LA TIENDA ---
     final tienda = await ref.read(tiendaDetailsProvider(order.tiendaId).future);
 
     const pageFormat = PdfPageFormat(58 * PdfPageFormat.mm, double.infinity, marginAll: 5 * PdfPageFormat.mm);
@@ -57,13 +56,12 @@ class _OrderDetailsScreenState extends ConsumerState<OrderDetailsScreen> {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              // --- TÍTULO Y DATOS MEJORADOS ---
               pw.Text(tienda.name, style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
               pw.Divider(thickness: 1),
               pw.Text('Pedido: #${order.id!.substring(order.id!.length - 6)}'),
               pw.Text('Cliente: ${customer?.name ?? 'N/A'}'),
-              if (order.preparedBy != null && order.preparedBy!.isNotEmpty)
-                pw.Text('Procesado por: ${order.preparedBy}'),
+              if (order.deliveryZone != null && order.deliveryZone!.isNotEmpty)
+                pw.Text('Zona Entrega: ${order.deliveryZone}'),
               pw.Text('Fecha: ${DateFormat('dd/MM/yy hh:mm').format(order.timestamp)}'),
               pw.Divider(thickness: 1),
               pw.SizedBox(height: 10),
@@ -108,16 +106,10 @@ class _OrderDetailsScreenState extends ConsumerState<OrderDetailsScreen> {
           if (currentUser?.role == UserRole.vendedor)
             orderDetailsAsync.when(
               data: (order) => itemsAsync.when(
-                data: (items) => IconButton(
-                  icon: const Icon(Icons.print),
-                  onPressed: () => _printOrder(order, items, context),
-                  tooltip: 'Imprimir Comanda',
-                ),
-                loading: () => const SizedBox.shrink(),
-                error: (e, st) => const SizedBox.shrink(),
+                data: (items) => IconButton(icon: const Icon(Icons.print), onPressed: () => _printOrder(order, items, context), tooltip: 'Imprimir Comanda'),
+                loading: () => const SizedBox.shrink(), error: (_, __) => const SizedBox.shrink(),
               ),
-              loading: () => const SizedBox.shrink(),
-              error: (e, st) => const SizedBox.shrink(),
+              loading: () => const SizedBox.shrink(), error: (_, __) => const SizedBox.shrink(),
             )
         ],
       ),
@@ -125,7 +117,6 @@ class _OrderDetailsScreenState extends ConsumerState<OrderDetailsScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, st) => Center(child: Text('Error: $e')),
         data: (order) {
-          final sellerInfo = ref.watch(sellerForStoreProvider(order.tiendaId));
           return Column(
             children: [
               Expanded(
@@ -133,12 +124,9 @@ class _OrderDetailsScreenState extends ConsumerState<OrderDetailsScreen> {
                   loading: () => const Center(child: CircularProgressIndicator()),
                   error: (e, st) => Center(child: Text('Error al cargar productos: $e')),
                   data: (items) {
-                    if (items.isEmpty) return const Center(child: Text('Este pedido no tiene productos.'));
-                    bool isSellerAndViewingPreparingOrder = currentUser?.role == UserRole.vendedor && order.status == 'en_preparacion';
-                    if (isSellerAndViewingPreparingOrder) {
-                      if (_checkedItems.isEmpty && items.isNotEmpty) {
-                        _checkedItems = List<bool>.filled(items.length, false);
-                      }
+                    bool isSellerView = currentUser?.role == UserRole.vendedor;
+                    if (isSellerView && order.status == OrderStatus.en_preparacion.name) {
+                      if (_checkedItems.isEmpty && items.isNotEmpty) _checkedItems = List<bool>.filled(items.length, false);
                       return ListView.builder(
                         itemCount: items.length,
                         itemBuilder: (context, index) {
@@ -148,9 +136,7 @@ class _OrderDetailsScreenState extends ConsumerState<OrderDetailsScreen> {
                             subtitle: Text('Cantidad: ${item.quantity}'),
                             value: _checkedItems.length > index ? _checkedItems[index] : false,
                             onChanged: (bool? value) {
-                              setState(() {
-                                _checkedItems[index] = value ?? false;
-                              });
+                              setState(() => _checkedItems[index] = value ?? false);
                               _updateChecklistState();
                             },
                           );
@@ -161,60 +147,52 @@ class _OrderDetailsScreenState extends ConsumerState<OrderDetailsScreen> {
                         itemCount: items.length,
                         itemBuilder: (context, index) {
                           final item = items[index];
-                          return ListTile(
-                            title: Text(item.productName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Text('Cantidad: ${item.quantity}'),
-                          );
+                          return ListTile(title: Text(item.productName, style: const TextStyle(fontWeight: FontWeight.bold)), subtitle: Text('Cantidad: ${item.quantity}'));
                         },
                       );
                     }
                   },
                 ),
               ),
-              if (currentUser?.role == UserRole.vendedor && order.status == 'en_preparacion')
+              if (currentUser?.role == UserRole.vendedor && order.status == OrderStatus.en_preparacion.name)
                 SafeArea(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _areAllItemsChecked ? Colors.orangeAccent : Colors.grey,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        onPressed: _areAllItemsChecked
-                            ? () {
-                                ref.read(firestoreServiceProvider).updateOrderStatus(widget.orderId, 'listo_para_entrega');
-                                Navigator.of(context).pop();
-                              }
-                            : null,
+                        style: ElevatedButton.styleFrom(backgroundColor: _areAllItemsChecked ? Colors.orangeAccent : Colors.grey, padding: const EdgeInsets.symmetric(vertical: 16)),
+                        onPressed: _areAllItemsChecked ? () {
+                          // --- LLAMADA CORREGIDA A LA FUNCIÓN ---
+                          ref.read(firestoreServiceProvider).updateOrderStatus(widget.orderId, OrderStatus.listo_para_entrega);
+                          Navigator.of(context).pop();
+                        } : null,
                         child: const Text('Marcar como Listo para Entrega', style: TextStyle(fontSize: 18, color: Colors.white)),
                       ),
                     ),
                   ),
                 )
-              else if (currentUser?.role == UserRole.cliente && order.status != 'entregado')
+              else if (currentUser?.role == UserRole.cliente && order.status != OrderStatus.entregado.name)
                 SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
                     child: Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          sellerInfo.when(
-                            data: (seller) => Text(
-                              'Muestra este código QR a "${seller?.name ?? 'el vendedor'}"',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                              textAlign: TextAlign.center,
-                            ),
-                            loading: () => const SizedBox.shrink(),
-                            error: (e, st) => const Text('ID de la Transacción', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                          ),
+                          if (order.status == OrderStatus.listo_para_entrega.name && order.deliveryZone != null)
+                            Text('¡Tu pedido está listo!\nRetira en: ${order.deliveryZone}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18), textAlign: TextAlign.center)
+                          else if (order.status == OrderStatus.en_preparacion.name)
+                            Text('Preparando tu pedido...\nAtendido por: ${order.preparedBy ?? 'Cocina'}', style: const TextStyle(fontSize: 16), textAlign: TextAlign.center)
+                          else
+                            const Text('Tu pedido ha sido pagado y está en espera.', style: TextStyle(fontSize: 16), textAlign: TextAlign.center),
                           const SizedBox(height: 12),
                           Container(
                             color: Colors.white,
                             child: QrImageView(data: widget.orderId, version: QrVersions.auto, size: 180.0),
                           ),
+                          const SizedBox(height: 8),
+                          const Text('Muestra este QR para la entrega', style: TextStyle(color: Colors.grey)),
                         ],
                       ),
                     ),

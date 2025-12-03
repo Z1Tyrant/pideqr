@@ -1,7 +1,5 @@
-// lib/core/models/pedido.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-// --- ENUM PARA ESTADOS DE PEDIDO ---
 enum OrderStatus {
   pagado,
   en_preparacion,
@@ -17,7 +15,8 @@ class Pedido {
   final double total;
   final String status;
   final DateTime timestamp;
-  final String? preparedBy;
+  final String? preparedBy; 
+  final String? deliveryZone; // <-- NUEVO CAMPO
 
   Pedido({
     this.id,
@@ -27,6 +26,7 @@ class Pedido {
     required this.status,
     required this.timestamp,
     this.preparedBy,
+    this.deliveryZone, // <-- NUEVO CAMPO
   });
 
   Map<String, dynamic> toMap() {
@@ -36,7 +36,7 @@ class Pedido {
       'total': total,
       'status': status,
       'timestamp': Timestamp.fromDate(timestamp),
-      // 'preparedBy' se actualiza por separado a través de transacciones
+      // preparedBy y deliveryZone se actualizan en transacciones separadas
     };
   }
 
@@ -46,9 +46,10 @@ class Pedido {
       userId: data['userId'] ?? '',
       tiendaId: data['tiendaId'] ?? '',
       total: (data['total'] as num?)?.toDouble() ?? 0.0,
-      status: data['status'] ?? 'pagado', // Default a pagado
+      status: data['status'] ?? 'pagado',
       timestamp: (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
       preparedBy: data['preparedBy'] as String?,
+      deliveryZone: data['deliveryZone'] as String?, // <-- NUEVO CAMPO
     );
   }
 }

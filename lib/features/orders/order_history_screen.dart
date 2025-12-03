@@ -24,19 +24,36 @@ class OrderHistoryScreen extends ConsumerWidget {
     return 5; // Otros estados al final
   }
 
-  // --- FUNCIÓN DE MANEJO DE ERRORES ---
-  void _showFriendlyError(BuildContext context, Object error) {
-    String message = 'Ocurrió un error inesperado.';
-    if (error.toString().contains('invalid-email')) {
-      message = 'El formato del correo electrónico no es válido.';
-    } else if (error.toString().contains('user-not-found') || error.toString().contains('wrong-password')) {
-      message = 'Correo o contraseña incorrectos. Por favor, inténtalo de nuevo.';
-    } else if (error.toString().contains('network-request-failed')) {
-      message = 'Error de red. Por favor, revisa tu conexión a internet.';
+  Color _getStatusColor(String status) {
+    if (status == OrderStatus.listo_para_entrega.name) return Colors.blueAccent;
+    if (status == OrderStatus.en_preparacion.name) return Colors.orange;
+    if (status == OrderStatus.pagado.name) return Colors.green;
+    if (status == OrderStatus.entregado.name) return Colors.grey;
+    if (status == OrderStatus.cancelado.name) return Colors.red;
+    return Colors.grey;
+  }
+
+  // --- WIDGET DE ESTADO MEJORADO ---
+  Widget _buildStatusChip(Pedido order) {
+    // Caso especial: Pedido listo con zona de entrega
+    if (order.status == OrderStatus.listo_para_entrega.name && order.deliveryZone != null && order.deliveryZone!.isNotEmpty) {
+      return Chip(
+        avatar: const Icon(Icons.takeout_dining, color: Colors.white, size: 18),
+        label: Text(
+          'Retirar en: ${order.deliveryZone}',
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: _getStatusColor(order.status),
+      );
     }
     
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    // Comportamiento por defecto para los demás estados
+    return Chip(
+      label: Text(
+        _getReadableStatus(order.status),
+        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+      ),
+      backgroundColor: _getStatusColor(order.status),
     );
   }
 
@@ -50,13 +67,7 @@ class OrderHistoryScreen extends ConsumerWidget {
       ),
       body: ordersAsyncValue.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) {
-          // Usamos la nueva función de errores
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _showFriendlyError(context, error);
-          });
-          return const Center(child: Text('No se pudo cargar el historial.'));
-        },
+        error: (error, stack) => const Center(child: Text('No se pudo cargar el historial.')),
         data: (orders) {
           if (orders.isEmpty) {
             return const Center(
@@ -83,13 +94,7 @@ class OrderHistoryScreen extends ConsumerWidget {
                 child: ListTile(
                   title: Text('Pedido $displayId', style: const TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: Text('Fecha: $formattedDate\nTotal: \$${order.total.toStringAsFixed(0)}'),
-                  trailing: Chip(
-                    label: Text(
-                      _getReadableStatus(order.status),
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                    ),
-                    backgroundColor: _getStatusColor(order.status),
-                  ),
+                  trailing: _buildStatusChip(order), // <-- USANDO EL NUEVO WIDGET
                   isThreeLine: true,
                   onTap: () {
                     Navigator.of(context).push(
@@ -103,14 +108,5 @@ class OrderHistoryScreen extends ConsumerWidget {
         },
       ),
     );
-  }
-
-  Color _getStatusColor(String status) {
-    if (status == OrderStatus.listo_para_entrega.name) return Colors.blueAccent;
-    if (status == OrderStatus.en_preparacion.name) return Colors.orange;
-    if (status == OrderStatus.pagado.name) return Colors.green;
-    if (status == OrderStatus.entregado.name) return Colors.grey;
-    if (status == OrderStatus.cancelado.name) return Colors.red;
-    return Colors.grey;
   }
 }

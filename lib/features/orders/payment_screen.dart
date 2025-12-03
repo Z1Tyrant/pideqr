@@ -49,8 +49,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     );
 
     try {
-      // --- LLAMADA CORREGIDA ---
-      final newOrderId = await firestoreService.placeOrderAndUpdateStock(
+      // --- LLAMADA CORREGIDA A LA FUNCIÓN SIMPLIFICADA ---
+      final newOrderId = await firestoreService.placeOrder(
         pedido: nuevoPedido,
         items: carrito.items,
       );

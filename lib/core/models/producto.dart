@@ -5,35 +5,36 @@ class Producto {
   final String name;
   final double price;
   final String description;
-  final int stock; // <-- NUEVO CAMPO
+  final int stock;
+  final String? imageUrl; // <-- NUEVO CAMPO
 
   Producto({
     required this.id,
     required this.name,
     required this.price,
     required this.description,
-    required this.stock, // <-- NUEVO CAMPO
+    required this.stock,
+    this.imageUrl, // <-- NUEVO CAMPO
   });
 
-  // Constructor factory para crear un Producto a partir de un documento de Firestore
   factory Producto.fromMap(Map<String, dynamic> data, String id) {
     return Producto(
       id: id,
       name: data['name'] ?? '',
       price: (data['price'] as num?)?.toDouble() ?? 0.0,
       description: data['description'] ?? '',
-      stock: data['stock'] as int? ?? 0, // <-- NUEVO CAMPO (default a 0 si no existe)
+      stock: data['stock'] as int? ?? 0,
+      imageUrl: data['imageUrl'] as String?, // <-- NUEVO CAMPO
     );
   }
 
-  // Método para convertir el objeto a un mapa para guardarlo en Firestore
-  // (No lo usamos para leer, pero es buena práctica tenerlo)
   Map<String, dynamic> toMap() {
     return {
       'name': name,
       'price': price,
       'description': description,
       'stock': stock,
+      'imageUrl': imageUrl,
     };
   }
 }

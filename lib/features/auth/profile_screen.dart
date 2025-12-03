@@ -19,7 +19,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    // Inicializamos el controlador con el nombre actual del usuario
     _nameController = TextEditingController(text: ref.read(userModelProvider).value?.name ?? '');
   }
 
@@ -37,35 +36,45 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
-
+    setState(() => _isLoading = true);
     try {
       final userId = ref.read(userModelProvider).value!.uid;
       await ref.read(firestoreServiceProvider).updateUserName(userId, _nameController.text.trim());
-      
-      // Refrescamos el provider para que toda la app se actualice con el nuevo nombre
       ref.refresh(userModelProvider);
-
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('¡Nombre actualizado con éxito!'),
-          backgroundColor: Colors.green,
-        ),
+        const SnackBar(content: Text('¡Nombre actualizado!'), backgroundColor: Colors.green),
       );
-      
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error al actualizar el nombre: $e')),
       );
     } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // --- NUEVO MÉTODO PARA CAMBIAR CONTRASEÑA ---
+  Future<void> _sendPasswordReset() async {
+    final userEmail = ref.read(userModelProvider).value?.email;
+    if (userEmail == null) return;
+
+    try {
+      await ref.read(authServiceProvider).sendPasswordResetEmail(userEmail);
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Se ha enviado un correo para restablecer tu contraseña.'),
+            backgroundColor: Colors.blue,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
+        );
       }
     }
   }
@@ -88,7 +97,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   const SizedBox(height: 16),
 
                   const Text('Rol', style: TextStyle(fontWeight: FontWeight.bold)),
-                  Text(userModel.role.toString().split('.').last),
+                  Text(userModel.role.name),
                   const SizedBox(height: 24),
 
                   const Text('Nombre de Usuario', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -109,6 +118,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
                           ),
                   ),
+                  const SizedBox(height: 16),
+                  Center(
+                    child: TextButton(
+                      onPressed: _sendPasswordReset,
+                      child: const Text('Cambiar mi contraseña'),
+                    ),
+                  )
                 ],
               ),
             ),

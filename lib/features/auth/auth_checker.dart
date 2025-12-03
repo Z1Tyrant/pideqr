@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pideqr/core/models/user_model.dart';
-import 'package:pideqr/features/admin/admin_screen.dart'; // <-- NUEVA IMPORTACIÓN
+import 'package:pideqr/features/admin/admin_screen.dart';
 import 'package:pideqr/features/auth/auth_providers.dart';
 import 'package:pideqr/features/auth/login_screen.dart';
+import 'package:pideqr/features/auth/profile_screen.dart'; // <-- NUEVA IMPORTACIÓN
+import 'package:pideqr/features/manager/manager_screen.dart';
 import 'package:pideqr/features/orders/order_history_screen.dart';
 import 'package:pideqr/features/orders/order_provider.dart';
 import 'package:pideqr/features/seller/seller_screen.dart';
@@ -20,6 +22,16 @@ class HomeScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('PideQR'),
         actions: [
+          // --- NUEVO BOTÓN DE PERFIL PARA CLIENTES ---
+          IconButton(
+            icon: const Icon(Icons.person_outline),
+            tooltip: 'Mi Perfil',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const ProfileScreen()),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.history),
             tooltip: 'Mis Pedidos',
@@ -32,9 +44,15 @@ class HomeScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Cerrar Sesión',
-            onPressed: () {
+            onPressed: () async {
               ref.read(orderNotifierProvider.notifier).clearCart();
-              ref.read(authServiceProvider).signOut();
+              await ref.read(authServiceProvider).signOut();
+              if (context.mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const AuthChecker()),
+                  (route) => false,
+                );
+              }
             },
           )
         ],
@@ -92,12 +110,8 @@ class AuthChecker extends ConsumerWidget {
     final authState = ref.watch(authStateChangesProvider);
 
     return authState.when(
-      loading: () => const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      ),
-      error: (error, stack) => Scaffold(
-        body: Center(child: Text('Error de autenticación: $error')),
-      ),
+      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (error, stack) => Scaffold(body: Center(child: Text('Error de autenticación: $error'))),
       data: (user) {
         if (user == null) {
           return const LoginScreen();
@@ -105,17 +119,14 @@ class AuthChecker extends ConsumerWidget {
 
         final userModelAsync = ref.watch(userModelProvider);
         return userModelAsync.when(
-          loading: () => const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          ),
-          error: (err, stack) => Scaffold(
-            body: Center(child: Text('Error al cargar datos de usuario: $err')),
-          ),
-          // --- LÓGICA DE REDIRECCIÓN MEJORADA ---
+          loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+          error: (err, stack) => Scaffold(body: Center(child: Text('Error al cargar datos de usuario: $err'))),
           data: (userModel) {
             switch (userModel?.role) {
               case UserRole.admin:
                 return const AdminScreen();
+              case UserRole.manager:
+                return const ManagerScreen();
               case UserRole.vendedor:
                 return const SellerScreen();
               case UserRole.cliente:

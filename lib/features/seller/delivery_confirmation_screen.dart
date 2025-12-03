@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'package:pideqr/core/models/pedido.dart';
 import 'package:pideqr/features/auth/auth_providers.dart';
 import 'package:pideqr/features/menu/menu_providers.dart';
@@ -32,14 +31,17 @@ class _DeliveryConfirmationScreenState extends ConsumerState<DeliveryConfirmatio
 
   Future<void> _confirmDelivery() async {
     final firestoreService = ref.read(firestoreServiceProvider);
-    await firestoreService.updateOrderStatus(widget.order.id!, 'entregado');
+    // --- LLAMADA CORREGIDA ---
+    await firestoreService.updateOrderStatus(widget.order.id!, OrderStatus.entregado);
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('¡Pedido marcado como entregado!'), backgroundColor: Colors.green),
     );
 
-    Navigator.of(context).pop();
+    // Navega dos pantallas hacia atrás para volver a la lista de pedidos
+    int count = 0;
+    Navigator.of(context).popUntil((_) => count++ >= 2);
   }
 
   @override

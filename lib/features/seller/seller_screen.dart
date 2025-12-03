@@ -100,7 +100,7 @@ class _SellerOrderCardState extends ConsumerState<SellerOrderCard> {
   Widget build(BuildContext context) {
     final formattedDate = DateFormat('dd/MM, hh:mm a').format(widget.order.timestamp);
     final displayId = '#...${widget.order.id!.substring(widget.order.id!.length - 6)}';
-    final sellerName = ref.watch(userModelProvider).value?.name ?? 'Vendedor';
+    final seller = ref.watch(userModelProvider).value;
     final customerData = ref.watch(userDataProvider(widget.order.userId));
 
     return Card(
@@ -131,11 +131,27 @@ class _SellerOrderCardState extends ConsumerState<SellerOrderCard> {
                       label: const Text('Reclamar y Preparar'),
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                       onPressed: () async {
+                        // --- COMPROBACIÓN DE NULABILIDAD AÑADIDA ---
+                        if (seller == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Error: No se pudo cargar tu perfil de vendedor.'), backgroundColor: Colors.red),
+                          );
+                          return;
+                        }
+
+                        if (seller.deliveryZone == null) {
+                           ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Error: No tienes una zona de entrega asignada.'), backgroundColor: Colors.red),
+                          );
+                          return;
+                        }
+
                         setState(() { _isLoading = true; });
                         try {
-                          final success = await ref.read(firestoreServiceProvider).claimOrderForPreparation(
+                          final success = await ref.read(firestoreServiceProvider).claimOrderAndUpdateStock(
                             orderId: widget.order.id!,
-                            sellerName: sellerName,
+                            sellerName: seller.name,
+                            sellerZone: seller.deliveryZone,
                           );
                           if (success && mounted) {
                             Navigator.of(context).push(

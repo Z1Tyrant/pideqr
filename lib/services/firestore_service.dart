@@ -8,6 +8,10 @@ import '../core/models/tienda.dart';
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+  String getNewDocumentId(String collectionPath) {
+    return _db.collection(collectionPath).doc().id;
+  }
+
   Stream<Tienda> streamTienda(String tiendaId) {
     return _db
         .collection('tiendas')
@@ -25,23 +29,33 @@ class FirestoreService {
     return _db.collection('tiendas').doc(tiendaId).update({'name': newName});
   }
 
-  Future<void> createStore(String name) {
-    return _db.collection('tiendas').add({'name': name});
+  Future<String> createStore(String name) async {
+    final docRef = await _db.collection('tiendas').add({'name': name});
+    return docRef.id;
   }
 
-  // --- NUEVA FUNCIÓN PARA ELIMINAR TIENDAS Y SUS PRODUCTOS ---
   Future<void> deleteStore(String tiendaId) async {
     final storeRef = _db.collection('tiendas').doc(tiendaId);
     final productosSnapshot = await storeRef.collection('productos').get();
-
     final WriteBatch batch = _db.batch();
-
     for (final doc in productosSnapshot.docs) {
       batch.delete(doc.reference);
     }
-    
     await batch.commit();
     await storeRef.delete();
+  }
+
+  Future<void> addDeliveryZone(String tiendaId, String zoneName) {
+    if (zoneName.trim().isEmpty) return Future.value();
+    return _db.collection('tiendas').doc(tiendaId).update({
+      'deliveryZones': FieldValue.arrayUnion([zoneName.trim()])
+    });
+  }
+
+  Future<void> removeDeliveryZone(String tiendaId, String zoneName) {
+    return _db.collection('tiendas').doc(tiendaId).update({
+      'deliveryZones': FieldValue.arrayRemove([zoneName])
+    });
   }
 
   Stream<List<Producto>> streamProductosPorTienda(String tiendaId) {
@@ -80,24 +94,62 @@ class FirestoreService {
     return null;
   }
 
-  Future<bool> claimOrderForPreparation({required String orderId, required String sellerName}) {
-    final orderRef = _db.collection('pedidos').doc(orderId);
+  Future<String> placeOrder({
+    required Pedido pedido,
+    required List<PedidoItem> items,
+  }) {
+    return _db.runTransaction<String>((transaction) async {
+      final pedidoRef = _db.collection('pedidos').doc();
+      transaction.set(pedidoRef, pedido.toMap());
+      for (var item in items) {
+        final itemRef = pedidoRef.collection('items').doc();
+        transaction.set(itemRef, item.toMap());
+      }
+      return pedidoRef.id;
+    });
+  }
 
+  Future<bool> claimOrderAndUpdateStock({
+    required String orderId,
+    required String sellerName,
+    String? sellerZone,
+  }) {
+    final orderRef = _db.collection('pedidos').doc(orderId);
     return _db.runTransaction<bool>((transaction) async {
       final orderDoc = await transaction.get(orderRef);
+      if (!orderDoc.exists) throw Exception("Este pedido ya no existe.");
+      if (orderDoc.data()?['status'] != OrderStatus.pagado.name) throw Exception("Este pedido ya fue reclamado.");
 
-      if (!orderDoc.exists) {
-        throw Exception("Este pedido ya no existe.");
+      final String tiendaId = orderDoc.data()!['tiendaId'];
+      final itemsSnapshot = await orderRef.collection('items').get();
+      final List<Map<String, dynamic>> stockUpdates = [];
+
+      for (final itemDoc in itemsSnapshot.docs) {
+        final item = PedidoItem.fromMap(itemDoc.data());
+        final productRef = _db.collection('tiendas').doc(tiendaId).collection('productos').doc(item.productId);
+        final productDoc = await transaction.get(productRef);
+
+        if (!productDoc.exists) throw Exception("El producto ${item.productName} ya no existe.");
+        
+        final currentStock = productDoc.data()!['stock'] as int;
+        if (currentStock < item.quantity) throw Exception("No hay stock para ${item.productName}. Solo quedan $currentStock.");
+
+        stockUpdates.add({
+          'ref': productRef,
+          'newStock': currentStock - item.quantity,
+        });
       }
 
-      if (orderDoc.data()?['status'] != 'pagado') {
-        throw Exception("Este pedido ya fue reclamado o procesado.");
+      for (var update in stockUpdates) {
+        transaction.update(update['ref'] as DocumentReference, {'stock': update['newStock']});
       }
 
       transaction.update(orderRef, {
-        'status': 'en_preparacion',
+        'status': OrderStatus.en_preparacion.name,
         'preparedBy': sellerName,
+        'deliveryZone': sellerZone,
       });
+
       return true;
     });
   }
@@ -133,6 +185,12 @@ class FirestoreService {
     });
   }
 
+  Future<void> assignZoneToSeller(String userId, String? zone) {
+    return _db.collection('users').doc(userId).update({
+      'deliveryZone': zone,
+    });
+  }
+
   Stream<List<Pedido>> streamUserOrders(String userId) {
     return _db
         .collection('pedidos')
@@ -159,7 +217,7 @@ class FirestoreService {
     return _db
         .collection('pedidos')
         .where('tiendaId', isEqualTo: tiendaId)
-        .where('status', whereIn: ['pagado', 'en_preparacion', 'listo_para_entrega'])
+        .where('status', whereIn: [OrderStatus.pagado.name, OrderStatus.en_preparacion.name, OrderStatus.listo_para_entrega.name])
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => Pedido.fromMap(doc.data(), doc.id))
@@ -170,7 +228,7 @@ class FirestoreService {
     return _db
         .collection('pedidos')
         .where('tiendaId', isEqualTo: tiendaId)
-        .where('status', isEqualTo: 'entregado')
+        .where('status', isEqualTo: OrderStatus.entregado.name)
         .orderBy('timestamp', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs
@@ -178,8 +236,10 @@ class FirestoreService {
             .toList());
   }
 
-  Future<void> updateOrderStatus(String orderId, String newStatus, {String? preparedBy}) {
-    final dataToUpdate = <String, dynamic>{'status': newStatus};
+  Future<void> updateOrderStatus(String orderId, OrderStatus newStatus, {String? preparedBy}) {
+    final dataToUpdate = <String, dynamic>{
+      'status': newStatus.name,
+    };
     if (preparedBy != null) {
       dataToUpdate['preparedBy'] = preparedBy;
     }
@@ -188,39 +248,5 @@ class FirestoreService {
 
   Future<void> updateUserName(String userId, String newName) {
     return _db.collection('users').doc(userId).update({'name': newName});
-  }
-
-  Future<String> placeOrderAndUpdateStock({
-    required Pedido pedido,
-    required List<PedidoItem> items,
-  }) {
-    return _db.runTransaction<String>((transaction) async {
-      final pedidoRef = _db.collection('pedidos').doc();
-      final List<Map<String, dynamic>> stockUpdates = [];
-      for (final item in items) {
-        final productoRef = _db.collection('tiendas').doc(pedido.tiendaId).collection('productos').doc(item.productId);
-        final productoDoc = await transaction.get(productoRef);
-        if (!productoDoc.exists) {
-          throw Exception("El producto ${item.productName} ya no existe.");
-        }
-        final currentStock = productoDoc.data()!['stock'] as int;
-        if (currentStock < item.quantity) {
-          throw Exception("No hay suficiente stock para ${item.productName}. Solo quedan $currentStock.");
-        }
-        stockUpdates.add({
-          'ref': productoRef,
-          'newStock': currentStock - item.quantity,
-        });
-      }
-      transaction.set(pedidoRef, pedido.toMap());
-      for (var update in stockUpdates) {
-        transaction.update(update['ref'] as DocumentReference, {'stock': update['newStock']});
-      }
-      for (var item in items) {
-        final itemRef = pedidoRef.collection('items').doc();
-        transaction.set(itemRef, item.toMap());
-      }
-      return pedidoRef.id;
-    });
   }
 }

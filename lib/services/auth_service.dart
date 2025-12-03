@@ -17,7 +17,6 @@ class AuthService {
     return null;
   }
 
-  // --- FUNCIÓN DE REGISTRO SIMPLIFICADA ---
   Future<UserModel> registerWithEmail({
     required String email,
     required String password,
@@ -30,7 +29,6 @@ class AuthService {
       );
       final uid = userCredential.user!.uid;
 
-      // El rol se asigna como 'cliente' por defecto
       final newUser = UserModel(
         uid: uid,
         email: email,
@@ -67,5 +65,16 @@ class AuthService {
 
   Future<void> signOut() async {
     await _auth.signOut();
+  }
+
+  // --- NUEVO MÉTODO PARA CAMBIAR CONTRASEÑA ---
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+    } on FirebaseAuthException {
+      rethrow;
+    } catch (e) {
+      throw Exception('Ha ocurrido un error inesperado al enviar el correo.');
+    }
   }
 }
