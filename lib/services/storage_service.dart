@@ -15,8 +15,9 @@ class StorageService {
     required String productId,
   }) async {
     try {
-      // Define la ruta en Firebase Storage (ej: product_images/producto_123.jpg)
-      final filePath = 'product_images/$productId.jpg';
+      // --- RUTA CORREGIDA ---
+      // Ahora coincide con la regla de seguridad de lectura: 'products/{allPaths=**}'
+      final filePath = 'products/$productId.jpg';
       final ref = _storage.ref(filePath);
 
       // Sube el archivo

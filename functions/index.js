@@ -47,23 +47,24 @@ exports.notifyOrderReady = onDocumentUpdated(
         return null;
       }
 
-      const payload = {
+      const message = {
         notification: {
           title: "¡Tu pedido está listo! 🎉",
-          body: `Puedes pasar a retirarlo. Zona: ${
-            afterData.deliveryZone || "No especificada"
-          }`,
+          // Línea corregida para no superar el límite de longitud
+          body: `Retira en: ${afterData.deliveryZone || "No especificada"}`,
         },
+        tokens: fcmTokens,
       };
 
       console.log(`Enviando a ${fcmTokens.length} dispositivo(s).`);
 
-      const response = await admin.messaging().sendToDevice(fcmTokens, payload);
+      const response = await admin.messaging()
+          .sendEachForMulticast(message);
 
       const tokensToRemove = [];
-      response.results.forEach((result, index) => {
-        const error = result.error;
-        if (error) {
+      response.responses.forEach((result, index) => {
+        if (!result.success) {
+          const error = result.error;
           console.error(
               "Fallo al enviar notificación:",
               fcmTokens[index],
