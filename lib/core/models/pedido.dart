@@ -15,8 +15,9 @@ class Pedido {
   final double total;
   final String status;
   final DateTime timestamp;
-  final String? preparedBy; 
-  final String? deliveryZone; // <-- NUEVO CAMPO
+  final String? preparedBy;
+  final String? deliveryZone;
+  final DateTime? deliveredAt; // <-- NUEVO CAMPO
 
   Pedido({
     this.id,
@@ -26,7 +27,8 @@ class Pedido {
     required this.status,
     required this.timestamp,
     this.preparedBy,
-    this.deliveryZone, // <-- NUEVO CAMPO
+    this.deliveryZone,
+    this.deliveredAt, // <-- NUEVO CAMPO
   });
 
   Map<String, dynamic> toMap() {
@@ -36,7 +38,7 @@ class Pedido {
       'total': total,
       'status': status,
       'timestamp': Timestamp.fromDate(timestamp),
-      // preparedBy y deliveryZone se actualizan en transacciones separadas
+      // Los demás campos se actualizan en transacciones separadas
     };
   }
 
@@ -49,7 +51,8 @@ class Pedido {
       status: data['status'] ?? 'pagado',
       timestamp: (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
       preparedBy: data['preparedBy'] as String?,
-      deliveryZone: data['deliveryZone'] as String?, // <-- NUEVO CAMPO
+      deliveryZone: data['deliveryZone'] as String?,
+      deliveredAt: (data['deliveredAt'] as Timestamp?)?.toDate(), // <-- NUEVO CAMPO
     );
   }
 }

@@ -9,12 +9,15 @@ import 'package:pideqr/features/admin/product_management_screen.dart';
 import 'package:pideqr/features/admin/manage_zones_screen.dart';
 import 'package:pideqr/features/admin/store_qr_code_screen.dart';
 import 'package:pideqr/features/orders/order_provider.dart';
-import 'package:pideqr/features/auth/profile_screen.dart'; // <-- NUEVA IMPORTACIÓN
+import 'package:pideqr/features/auth/profile_screen.dart';
+import 'package:pideqr/services/notification_service.dart'; // <-- NUEVA IMPORTACIÓN
 
 class ManagerScreen extends ConsumerWidget {
   const ManagerScreen({super.key});
 
+  // --- LÓGICA DE LOGOUT ACTUALIZADA ---
   Future<void> _logout(BuildContext context, WidgetRef ref) async {
+    await ref.read(notificationServiceProvider).removeTokenFromDatabase();
     ref.read(orderNotifierProvider.notifier).clearCart();
     await ref.read(authServiceProvider).signOut();
     if (context.mounted) {
@@ -61,7 +64,6 @@ class ManagerScreen extends ConsumerWidget {
         appBar: AppBar(
           title: const Text('Panel de Manager'),
           actions: [
-            // --- NUEVO BOTÓN DE PERFIL ---
             IconButton(
               icon: const Icon(Icons.person_outline),
               tooltip: 'Mi Perfil',

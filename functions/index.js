@@ -1,51 +1,91 @@
-    const functions = require("firebase-functions");
-    const admin = require("firebase-admin");
+const admin = require("firebase-admin");
+const {onDocumentUpdated} = require("firebase-functions/v2/firestore");
 
-    admin.initializeApp();
-    const db = admin.firestore();
+admin.initializeApp();
 
-    /**
-     * Esta Cloud Function se dispara cada vez que se crea un nuevo
-     * documento en la colección 'pedidos'.
-     */
-    exports.generateReadableOrderId = functions.firestore
-      .document("pedidos/{pedidoId}")
-      .onCreate(async (snap, context) => {
-        // 1. Referencia al documento que usaremos como contador.
-        const counterRef = db.collection("counters").doc("order_counter");
+/**
+ * Cloud Function (v2) que se dispara cuando un pedido se actualiza.
+ * Si el estado del pedido cambia a "listo_para_entrega", envía una
+ * notificación push al cliente que realizó el pedido.
+ */
+exports.notifyOrderReady = onDocumentUpdated(
+    "pedidos/{pedidoId}",
+    async (event) => {
+      const beforeData = event.data.before.data();
+      const afterData = event.data.after.data();
 
-        try {
-          // 2. Ejecutar una transacción para asegurar que la operación es atómica.
-          //    Esto evita que dos pedidos obtengan el mismo número al mismo tiempo.
-          const newOrderNumber = await db.runTransaction(async (transaction) => {
-            const counterDoc = await transaction.get(counterRef);
+      if (!beforeData || !afterData) {
+        return null;
+      }
 
-            // Si el contador no existe, empezamos en 1000.
-            let lastNumber = 1000;
-            if (counterDoc.exists) {
-              // Si existe, le sumamos 1 al último número guardado.
-              lastNumber = counterDoc.data().lastNumber + 1;
-            }
+      const isStatusUnchanged = beforeData.status === afterData.status;
+      const isNotReady = afterData.status !== "listo_para_entrega";
 
-            // Actualizamos el contador con el nuevo número para el siguiente pedido.
-            transaction.set(counterRef, { lastNumber: lastNumber });
+      if (isStatusUnchanged || isNotReady) {
+        return null;
+      }
 
-            return lastNumber;
-          });
+      console.log(`Pedido ${event.params.pedidoId} listo. Notificando...`);
 
-          // 3. Formateamos el ID legible (ej: "P-1001").
-          const readableId = `P-${newOrderNumber}`;
+      const userId = afterData.userId;
+      if (!userId) {
+        console.error("El pedido no tiene un userId asociado.");
+        return null;
+      }
 
-          // 4. Actualizamos el documento del pedido que se acaba de crear.
-          return snap.ref.update({ readableId: readableId });
+      const userRef = admin.firestore().collection("users").doc(userId);
+      const userDoc = await userRef.get();
 
-        } catch (error) {
+      if (!userDoc.exists) {
+        console.error(`Usuario ${userId} no encontrado.`);
+        return null;
+      }
+
+      const fcmTokens = userDoc.data().fcmTokens;
+      if (!fcmTokens || fcmTokens.length === 0) {
+        console.log(`Usuario ${userId} no tiene tokens de FCM.`);
+        return null;
+      }
+
+      const payload = {
+        notification: {
+          title: "¡Tu pedido está listo! 🎉",
+          body: `Puedes pasar a retirarlo. Zona: ${
+            afterData.deliveryZone || "No especificada"
+          }`,
+        },
+      };
+
+      console.log(`Enviando a ${fcmTokens.length} dispositivo(s).`);
+
+      const response = await admin.messaging().sendToDevice(fcmTokens, payload);
+
+      const tokensToRemove = [];
+      response.results.forEach((result, index) => {
+        const error = result.error;
+        if (error) {
           console.error(
-            "Fallo al generar el ID para el pedido:",
-            context.params.pedidoId,
-            error
+              "Fallo al enviar notificación:",
+              fcmTokens[index],
+              error,
           );
-          return null;
+          const errorCode = error.code;
+          if (
+            errorCode === "messaging/invalid-registration-token" ||
+            errorCode === "messaging/registration-token-not-registered"
+          ) {
+            tokensToRemove.push(fcmTokens[index]);
+          }
         }
       });
-    
+
+      if (tokensToRemove.length > 0) {
+        console.log(`Eliminando ${tokensToRemove.length} tokens inválidos.`);
+        return userRef.update({
+          fcmTokens: admin.firestore.FieldValue.arrayRemove(...tokensToRemove),
+        });
+      }
+
+      return null;
+    },
+);

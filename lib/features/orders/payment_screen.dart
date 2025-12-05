@@ -1,10 +1,10 @@
-// lib/features/orders/payment_screen.dart
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pideqr/core/models/pedido.dart';
+import 'package:pideqr/features/auth/auth_checker.dart';
 import 'package:pideqr/features/auth/auth_providers.dart';
-import 'package:pideqr/features/orders/confirmation_screen.dart';
 import 'package:pideqr/services/firestore_service.dart';
 import '../menu/menu_providers.dart';
 import 'order_provider.dart';
@@ -19,6 +19,52 @@ class PaymentScreen extends ConsumerStatefulWidget {
 class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   bool _isProcessing = false;
 
+  Future<void> _showSuccessDialogAndRedirect() async {
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false, // El usuario no puede cerrarlo tocando fuera
+      builder: (BuildContext context) {
+        return const PopScope(
+          canPop: false, // Previene que el botón "atrás" del sistema lo cierre
+          child: Dialog(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 40.0, horizontal: 24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.check_circle_outline, color: Colors.green, size: 80),
+                  SizedBox(height: 24),
+                  Text(
+                    '¡Pago Exitoso!',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Tu pedido ha sido registrado.',
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    // Espera 3 segundos antes de continuar
+    await Future.delayed(const Duration(seconds: 3));
+
+    if (mounted) {
+      // Navega a la pantalla de inicio y elimina todas las rutas anteriores
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+        (Route<dynamic> route) => false,
+      );
+    }
+  }
+
   Future<void> _processPayment() async {
     setState(() {
       _isProcessing = true;
@@ -26,17 +72,16 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
     final carrito = ref.read(orderNotifierProvider);
     final firestoreService = ref.read(firestoreServiceProvider);
-    final user = ref.read(authStateChangesProvider).value;
-    final userId = user?.uid;
+    final userId = ref.read(userModelProvider).value?.uid;
     final tiendaId = ref.read(currentTiendaIdProvider);
 
     if (userId == null || tiendaId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error: No se pudo identificar al usuario o la tienda.')),
-      );
-      setState(() {
-        _isProcessing = false;
-      });
+      if(mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error: No se pudo identificar al usuario o la tienda.')),
+        );
+      }
+      setState(() => _isProcessing = false);
       return;
     }
 
@@ -45,26 +90,19 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       tiendaId: tiendaId,
       total: carrito.subtotal,
       timestamp: DateTime.now(),
-      status: 'pagado',
+      status: OrderStatus.pagado.name,
     );
 
     try {
-      // --- LLAMADA CORREGIDA A LA FUNCIÓN SIMPLIFICADA ---
-      final newOrderId = await firestoreService.placeOrder(
+      await firestoreService.placeOrder(
         pedido: nuevoPedido,
         items: carrito.items,
       );
       
       ref.read(orderNotifierProvider.notifier).clearCart();
 
-      if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (context) => ConfirmationScreen(orderId: newOrderId),
-          ),
-          (Route<dynamic> route) => false,
-        );
-      }
+      // --- NUEVO FLUJO DE ÉXITO ---
+      await _showSuccessDialogAndRedirect();
 
     } catch (e) {
       if (mounted) {
@@ -72,14 +110,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           SnackBar(
             content: Text('Error al procesar el pedido: ${e.toString().replaceAll('Exception: ', '')}'),
             backgroundColor: Colors.redAccent,
-            behavior: SnackBarBehavior.floating,
-            margin: const EdgeInsets.all(12),
           ),
         );
       }
-      setState(() {
-        _isProcessing = false;
-      });
+      setState(() => _isProcessing = false);
     }
   }
 
@@ -89,7 +123,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Confirmar y Pagar'),
+        title: const Text('Procesando Pago'),
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -111,9 +145,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                   : ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       onPressed: _processPayment,
                       child: const Text('Pagar Ahora (Simulación)', style: TextStyle(fontSize: 18)),

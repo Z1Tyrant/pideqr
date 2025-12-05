@@ -1,11 +1,10 @@
-// lib/features/seller/delivery_confirmation_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pideqr/core/models/pedido.dart';
 import 'package:pideqr/features/auth/auth_providers.dart';
 import 'package:pideqr/features/menu/menu_providers.dart';
 import 'package:pideqr/features/orders/order_details_screen.dart';
+import 'package:pideqr/features/seller/delivery_success_screen.dart'; // <-- NUEVA IMPORTACIÓN
 
 class DeliveryConfirmationScreen extends ConsumerStatefulWidget {
   final Pedido order;
@@ -31,17 +30,15 @@ class _DeliveryConfirmationScreenState extends ConsumerState<DeliveryConfirmatio
 
   Future<void> _confirmDelivery() async {
     final firestoreService = ref.read(firestoreServiceProvider);
-    // --- LLAMADA CORREGIDA ---
     await firestoreService.updateOrderStatus(widget.order.id!, OrderStatus.entregado);
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('¡Pedido marcado como entregado!'), backgroundColor: Colors.green),
-    );
 
-    // Navega dos pantallas hacia atrás para volver a la lista de pedidos
-    int count = 0;
-    Navigator.of(context).popUntil((_) => count++ >= 2);
+    // --- NAVEGACIÓN ROBUSTA HACIA LA PANTALLA DE ÉXITO ---
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const DeliverySuccessScreen()),
+      (route) => false,
+    );
   }
 
   @override

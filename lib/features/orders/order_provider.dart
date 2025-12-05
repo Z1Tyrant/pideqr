@@ -74,21 +74,18 @@ class OrderNotifier extends Notifier<Carrito> {
     }
   }
 
-  // --- NUEVA FUNCIÓN PARA DECREMENTAR ---
   void decrementItemQuantity(String productId) {
     final existingIndex = state.items.indexWhere((item) => item.productId == productId);
-    if (existingIndex == -1) return; // No hace nada si el item no existe
+    if (existingIndex == -1) return; 
 
     final updatedItems = List<PedidoItem>.from(state.items);
     final existingItem = updatedItems[existingIndex];
 
     if (existingItem.quantity > 1) {
-      // Si hay más de 1, solo reduce la cantidad
       final newItem = existingItem.copyWith(quantity: existingItem.quantity - 1);
       updatedItems[existingIndex] = newItem;
       state = state.copyWith(items: updatedItems);
     } else {
-      // Si solo queda 1, elimina el producto del carrito
       removeItemFromCart(productId);
     }
   }
@@ -116,6 +113,18 @@ final userOrdersProvider = StreamProvider.autoDispose<List<Pedido>>((ref) {
     return firestoreService.streamUserOrders(user.uid);
   }
   
+  return Stream.value([]);
+});
+
+// --- NUEVO PROVIDER PARA PEDIDOS ACTIVOS DEL CLIENTE ---
+final activeUserOrdersProvider = StreamProvider.autoDispose<List<Pedido>>((ref) {
+  final firestoreService = ref.watch(firestoreServiceProvider);
+  final user = ref.watch(authStateChangesProvider).value;
+
+  if (user != null) {
+    return firestoreService.streamActiveUserOrders(user.uid);
+  }
+
   return Stream.value([]);
 });
 

@@ -6,13 +6,27 @@ import 'package:pideqr/features/admin/admin_providers.dart';
 import 'package:pideqr/features/admin/product_management_screen.dart';
 import 'package:pideqr/features/admin/store_qr_code_screen.dart';
 import 'package:pideqr/features/admin/manage_zones_screen.dart';
+import 'package:pideqr/features/auth/auth_checker.dart';
 import 'package:pideqr/features/auth/auth_providers.dart';
 import 'package:pideqr/features/admin/widgets/admin_dialogs.dart';
 import 'package:pideqr/features/admin/widgets/user_management_tile.dart';
-import 'package:pideqr/features/auth/profile_screen.dart'; // <-- NUEVA IMPORTACIÓN
+import 'package:pideqr/features/auth/profile_screen.dart';
+import 'package:pideqr/services/notification_service.dart'; // <-- NUEVA IMPORTACIÓN
 
 class AdminScreen extends ConsumerWidget {
   const AdminScreen({super.key});
+
+  // --- LÓGICA DE LOGOUT ACTUALIZADA ---
+  Future<void> _logout(BuildContext context, WidgetRef ref) async {
+    await ref.read(notificationServiceProvider).removeTokenFromDatabase();
+    await ref.read(authServiceProvider).signOut();
+    if (context.mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const AuthChecker()),
+        (route) => false,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -22,7 +36,6 @@ class AdminScreen extends ConsumerWidget {
         appBar: AppBar(
           title: const Text('Panel de Administración'),
           actions: [
-            // --- NUEVO BOTÓN DE PERFIL ---
             IconButton(
               icon: const Icon(Icons.person_outline),
               tooltip: 'Mi Perfil',
@@ -33,7 +46,7 @@ class AdminScreen extends ConsumerWidget {
             IconButton(
               icon: const Icon(Icons.logout),
               tooltip: 'Cerrar Sesión',
-              onPressed: () => ref.read(authServiceProvider).signOut(),
+              onPressed: () => _logout(context, ref), // Llama a la nueva función
             ),
           ],
           bottom: const TabBar(

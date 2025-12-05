@@ -1,6 +1,6 @@
 // lib/core/models/user_model.dart
 
-enum UserRole { cliente, vendedor, manager, admin, desconocido } // <-- ROL AÑADIDO
+enum UserRole { cliente, vendedor, manager, admin, desconocido }
 
 class UserModel {
   final String uid;
@@ -9,6 +9,7 @@ class UserModel {
   final UserRole role;
   final String? tiendaId;
   final String? deliveryZone;
+  final List<String> fcmTokens; // <-- NUEVO CAMPO
 
   UserModel({
     required this.uid,
@@ -17,6 +18,7 @@ class UserModel {
     required this.role,
     this.tiendaId,
     this.deliveryZone,
+    this.fcmTokens = const [], // <-- NUEVO CAMPO
   });
 
   static UserRole _roleFromString(String? roleString) {
@@ -26,7 +28,7 @@ class UserModel {
         return UserRole.cliente;
       case 'vendedor':
         return UserRole.vendedor;
-      case 'manager': // <-- LÓGICA AÑADIDA
+      case 'manager':
         return UserRole.manager;
       case 'admin':
         return UserRole.admin;
@@ -36,6 +38,8 @@ class UserModel {
   }
 
   factory UserModel.fromFirestore(Map<String, dynamic> data, String uid) {
+    final tokensFromDb = data['fcmTokens'] as List<dynamic>?;
+
     return UserModel(
       uid: uid,
       email: data['email'] ?? '',
@@ -43,6 +47,7 @@ class UserModel {
       role: _roleFromString(data['role'] as String?),
       tiendaId: data['tiendaId'] as String?,
       deliveryZone: data['deliveryZone'] as String?,
+      fcmTokens: tokensFromDb?.map((token) => token as String).toList() ?? [], // <-- NUEVO CAMPO
     );
   }
 
@@ -50,9 +55,12 @@ class UserModel {
     return {
       'email': email,
       'name': name,
-      'role': role.name, // .name es más seguro que toString()
+      'role': role.name,
       if (tiendaId != null) 'tiendaId': tiendaId,
       if (deliveryZone != null) 'deliveryZone': deliveryZone,
+      // Los tokens se gestionan con métodos específicos (add/remove) 
+      // pero lo incluimos aquí para la creación inicial del usuario.
+      'fcmTokens': fcmTokens,
     };
   }
 }

@@ -18,7 +18,8 @@ dependencies:
   cloud_firestore: ^5.1.0
   firebase_auth: ^5.1.2
   firebase_core: ^3.2.0
-  firebase_storage: ^12.1.0  # <-- NUEVA DEPENDENCIA
+  firebase_storage: ^12.1.0
+  firebase_messaging: ^15.0.0 # <-- DEPENDENCIA AÑADIDA
 
   # Manejo de Estado
   flutter_riverpod: ^2.5.1
@@ -35,7 +36,7 @@ dependencies:
   pdf: ^3.10.8
 
   # Selector de Imágenes
-  image_picker: ^1.1.2     # <-- NUEVA DEPENDENCIA
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:
