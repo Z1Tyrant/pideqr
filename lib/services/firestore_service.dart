@@ -133,7 +133,6 @@ class FirestoreService {
       if (orderDoc.data()?['status'] != OrderStatus.pagado.name) throw Exception("Este pedido ya fue reclamado.");
 
       final String tiendaId = orderDoc.data()!['tiendaId'];
-      // ... (resto de la lógica de stock)
 
       transaction.update(orderRef, {
         'status': OrderStatus.en_preparacion.name,
@@ -145,6 +144,7 @@ class FirestoreService {
     });
   }
 
+  // --- MÉTODO RESTAURADO ---
   Stream<UserModel?> getSellerForStore(String tiendaId) {
     return _db
         .collection('users')
@@ -156,6 +156,17 @@ class FirestoreService {
       if (snapshot.docs.isEmpty) return null;
       return UserModel.fromFirestore(snapshot.docs.first.data(), snapshot.docs.first.id);
     });
+  }
+
+  Stream<List<UserModel>> streamSellersForStore(String tiendaId) {
+    return _db
+        .collection('users')
+        .where('tiendaId', isEqualTo: tiendaId)
+        .where('role', isEqualTo: 'vendedor')
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => UserModel.fromFirestore(doc.data(), doc.id))
+            .toList());
   }
 
   Stream<List<UserModel>> streamAllUsers() {
@@ -193,7 +204,6 @@ class FirestoreService {
             .toList());
   }
 
-  // --- NUEVA FUNCIÓN PARA PEDIDOS ACTIVOS ---
   Stream<List<Pedido>> streamActiveUserOrders(String userId) {
     return _db
         .collection('pedidos')
