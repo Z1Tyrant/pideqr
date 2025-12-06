@@ -1,4 +1,4 @@
-import 'package:cloud_functions/cloud_functions.dart'; // <-- NUEVA IMPORTACIÓN
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pideqr/core/models/tienda.dart';
@@ -13,7 +13,6 @@ import 'package:pideqr/features/menu/menu_providers.dart';
 import 'package:pideqr/features/auth/profile_screen.dart';
 import 'package:pideqr/services/notification_service.dart';
 
-// Provider para la instancia de Cloud Functions
 final functionsProvider = Provider((ref) => FirebaseFunctions.instanceFor(region: 'us-central1'));
 
 class ManagerScreen extends ConsumerStatefulWidget {
@@ -55,7 +54,6 @@ class _ManagerScreenState extends ConsumerState<ManagerScreen> with SingleTicker
     }
   }
 
-  // --- DIÁLOGO REESCRITO PARA USAR CLOUD FUNCTIONS ---
   Future<void> _showAddSellerDialog() async {
     final emailController = TextEditingController();
     final formKey = GlobalKey<FormState>();
@@ -69,14 +67,12 @@ class _ManagerScreenState extends ConsumerState<ManagerScreen> with SingleTicker
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                  'Ingresa el correo del usuario (con rol Cliente) que deseas añadir a tu tienda.'),
+              const Text('Ingresa el correo del usuario (con rol Cliente) que deseas añadir a tu tienda.'),
               const SizedBox(height: 16),
               TextFormField(
                 controller: emailController,
                 keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(
-                    labelText: 'Correo electrónico', border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: 'Correo electrónico', border: OutlineInputBorder()),
                 validator: (value) => (value?.trim().isEmpty ?? true) ? 'Campo requerido' : null,
               ),
             ],
@@ -91,14 +87,13 @@ class _ManagerScreenState extends ConsumerState<ManagerScreen> with SingleTicker
               if (formKey.currentState!.validate()) {
                 final scaffoldMessenger = ScaffoldMessenger.of(context);
                 final navigator = Navigator.of(ctx);
-                
-                navigator.pop(); // Cierra el diálogo inmediatamente
+
+                navigator.pop(); 
                 scaffoldMessenger.showSnackBar(
-                  const SnackBar(content: Text('Promoviendo usuario a vendedor...'), duration: Duration(seconds: 10)),
+                  const SnackBar(content: Text('Promoviendo usuario...'), duration: Duration(seconds: 10)),
                 );
 
                 try {
-                  // Llama a la Cloud Function
                   final promoteFunction = ref.read(functionsProvider).httpsCallable('promoteUserToSeller');
                   final result = await promoteFunction.call({'email': emailController.text.trim()});
 
@@ -128,7 +123,7 @@ class _ManagerScreenState extends ConsumerState<ManagerScreen> with SingleTicker
   @override
   Widget build(BuildContext context) {
     final manager = ref.watch(userModelProvider).value;
-    
+
     if (manager == null || manager.tiendaId == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Error de Asignación')),
@@ -154,7 +149,7 @@ class _ManagerScreenState extends ConsumerState<ManagerScreen> with SingleTicker
       body: TabBarView(
         controller: _tabController,
         children: [
-          const _StoreManagementView(),
+          const _StoreManagementView(), // Contenido restaurado aquí
           const _SellersManagementView(),
         ],
       ),
@@ -162,15 +157,14 @@ class _ManagerScreenState extends ConsumerState<ManagerScreen> with SingleTicker
           ? FloatingActionButton.extended(
               icon: const Icon(Icons.add),
               label: const Text('Añadir Vendedor'),
-              onPressed: _showAddSellerDialog, // No necesita pasar storeId aquí
+              onPressed: _showAddSellerDialog,
             )
           : null,
     );
   }
 }
 
-// --- VISTAS Y WIDGETS INTERNOS (SIN CAMBIOS SIGNIFICATIVOS) ---
-
+// --- VISTA RESTAURADA ---
 class _StoreManagementView extends ConsumerWidget {
   const _StoreManagementView();
 
@@ -209,12 +203,7 @@ class _SellersManagementView extends ConsumerWidget {
         error: (e, st) => Center(child: Text('Error cargando vendedores: $e')),
         data: (vendedores) {
           if (vendedores.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24.0),
-                child: Text('No tienes vendedores asignados. Usa el botón "+" para añadir uno.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
-              ),
-            );
+            return const Center(child: Text('No tienes vendedores asignados.'));
           }
           return ListView.builder(
             padding: const EdgeInsets.only(bottom: 80),
@@ -256,6 +245,43 @@ class _SellerTileState extends ConsumerState<_SellerTile> {
     }
   }
 
+  Future<void> _showRemoveSellerConfirmation() async {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Quitar Vendedor'),
+        content: Text('¿Estás seguro de que quieres quitar a ${widget.seller.name} de la tienda? Su rol volverá a ser "Cliente".'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancelar')),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            onPressed: () async {
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
+              final navigator = Navigator.of(ctx);
+              navigator.pop();
+              scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Quitando vendedor...'), duration: Duration(seconds: 10)));
+
+              try {
+                final demoteFunction = ref.read(functionsProvider).httpsCallable('demoteSellerToCustomer');
+                await demoteFunction.call({'sellerId': widget.seller.uid});
+
+                scaffoldMessenger.hideCurrentSnackBar();
+                scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Vendedor quitado con éxito.'), backgroundColor: Colors.green));
+              } on FirebaseFunctionsException catch (e) {
+                scaffoldMessenger.hideCurrentSnackBar();
+                scaffoldMessenger.showSnackBar(SnackBar(content: Text('Error: ${e.message}'), backgroundColor: Colors.red));
+              } catch (e) {
+                scaffoldMessenger.hideCurrentSnackBar();
+                scaffoldMessenger.showSnackBar(SnackBar(content: Text('Ocurrió un error inesperado: ${e.toString()}'), backgroundColor: Colors.red));
+              }
+            },
+            child: const Text('Sí, quitar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final sellerData = ref.watch(userDataProvider(widget.seller.uid)).value;
@@ -268,6 +294,19 @@ class _SellerTileState extends ConsumerState<_SellerTile> {
             leading: const CircleAvatar(child: Icon(Icons.person)),
             title: Text(widget.seller.name, style: const TextStyle(fontWeight: FontWeight.bold)),
             subtitle: Text(widget.seller.email),
+            trailing: PopupMenuButton<String>(
+              onSelected: (value) {
+                if (value == 'remove') {
+                  _showRemoveSellerConfirmation();
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'remove',
+                  child: ListTile(leading: Icon(Icons.person_remove_outlined, color: Colors.red), title: Text('Quitar de la tienda')),
+                ),
+              ],
+            ),
           ),
           const Divider(height: 1, indent: 16, endIndent: 16),
           Padding(

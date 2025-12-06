@@ -1,6 +1,5 @@
 const admin = require("firebase-admin");
 const {onDocumentUpdated} = require("firebase-functions/v2/firestore");
-// --- LÍNEA CORREGIDA ---
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 
 admin.initializeApp();
@@ -131,5 +130,79 @@ exports.promoteUserToSeller = onCall(async (request) => {
   return {
     success: true,
     message: `¡${userToPromoteData.name} ahora es vendedor de tu tienda!`,
+  };
+});
+
+// --- FUNCIÓN #3 (NUEVA): Degradar un vendedor a cliente ---
+exports.demoteSellerToCustomer = onCall(async (request) => {
+  // 1. Validar que el que llama es un Manager autenticado
+  if (!request.auth || !request.auth.uid) {
+    throw new HttpsError("unauthenticated", "Debes estar autenticado.");
+  }
+
+  const callerUid = request.auth.uid;
+  const callerDoc = await admin.firestore().doc(`users/${callerUid}`).get();
+
+  if (!callerDoc.exists || callerDoc.data().role !== "manager") {
+    throw new HttpsError(
+        "permission-denied",
+        "No tienes permiso para realizar esta acción.",
+    );
+  }
+
+  const managerData = callerDoc.data();
+  const storeId = managerData.tiendaId;
+  if (!storeId) {
+    throw new HttpsError(
+        "failed-precondition",
+        "No tienes una tienda asignada.",
+    );
+  }
+
+  // 2. Validar datos de entrada (sellerId)
+  const sellerId = request.data.sellerId;
+  if (!sellerId || typeof sellerId !== "string") {
+    throw new HttpsError("invalid-argument", "El ID del vendedor es inválido.");
+  }
+
+  // 3. Obtener el documento del vendedor
+  const userRef = admin.firestore().doc(`users/${sellerId}`);
+  const sellerInStoreRef = admin.firestore()
+      .doc(`tiendas/${storeId}/vendedores/${sellerId}`);
+
+  const userToDemoteDoc = await userRef.get();
+  if (!userToDemoteDoc.exists) {
+    throw new HttpsError("not-found", "El vendedor a eliminar no existe.");
+  }
+  const userToDemoteData = userToDemoteDoc.data();
+
+  // 4. Validar que el vendedor pertenece a la tienda del manager
+  if (userToDemoteData.tiendaId !== storeId) {
+    throw new HttpsError(
+        "permission-denied",
+        "Este vendedor no pertenece a tu tienda.",
+    );
+  }
+
+  // 5. Ejecutar la degradación en una transacción
+  try {
+    await admin.firestore().runTransaction(async (transaction) => {
+      // 1. Actualiza el documento principal del usuario
+      transaction.update(userRef, {
+        "role": "cliente",
+        "tiendaId": null,
+        "deliveryZone": null,
+      });
+      // 2. Elimina la copia del vendedor de la sub-colección
+      transaction.delete(sellerInStoreRef);
+    });
+  } catch (error) {
+    console.error("Error en la transacción de degradación:", error);
+    throw new HttpsError("internal", "Ocurrió un error al quitar al vendedor.");
+  }
+
+  return {
+    success: true,
+    message: `¡${userToDemoteData.name} ha vuelto a ser cliente!`,
   };
 });
