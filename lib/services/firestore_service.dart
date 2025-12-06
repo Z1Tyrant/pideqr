@@ -8,6 +8,57 @@ import '../core/models/tienda.dart';
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+  // ... (otros métodos existentes sin cambios) ...
+
+  // --- NUEVA FUNCIÓN PARA EL MANAGER ---
+  Future<void> addSellerToStoreByEmail({
+    required String email,
+    required String storeId,
+  }) async {
+    // 1. Buscar al usuario por su email.
+    final querySnapshot = await _db
+        .collection('users')
+        .where('email', isEqualTo: email.trim().toLowerCase())
+        .limit(1)
+        .get();
+
+    if (querySnapshot.docs.isEmpty) {
+      throw Exception('No se encontró ningún usuario con ese correo electrónico.');
+    }
+
+    final userDoc = querySnapshot.docs.first;
+    final userToAssign = UserModel.fromFirestore(userDoc.data(), userDoc.id);
+
+    // 2. Validar al usuario.
+    if (userToAssign.role != UserRole.cliente) {
+      throw Exception('Solo se pueden añadir usuarios con el rol de Cliente.');
+    }
+    if (userToAssign.tiendaId != null) {
+      throw Exception('Este usuario ya está asignado a otra tienda.');
+    }
+
+    // 3. Ejecutar la promoción y asignación en una transacción.
+    final userRef = _db.collection('users').doc(userToAssign.uid);
+    final sellerInStoreRef = _db.collection('tiendas').doc(storeId).collection('vendedores').doc(userToAssign.uid);
+
+    return _db.runTransaction((transaction) async {
+      // Actualiza el documento principal del usuario
+      transaction.update(userRef, {
+        'role': UserRole.vendedor.name,
+        'tiendaId': storeId,
+      });
+
+      // Crea la copia del vendedor en la sub-colección de la tienda
+      transaction.set(sellerInStoreRef, {
+        'name': userToAssign.name,
+        'email': userToAssign.email,
+        'role': UserRole.vendedor.name,
+      });
+    });
+  }
+
+  // ... (resto de los métodos existentes sin cambios) ...
+
   String getNewDocumentId(String collectionPath) {
     return _db.collection(collectionPath).doc().id;
   }
@@ -36,9 +87,9 @@ class FirestoreService {
 
   Future<void> deleteStore(String tiendaId) async {
     final storeRef = _db.collection('tiendas').doc(tiendaId);
-    final productosSnapshot = await storeRef.collection('productos').get();
+    final productsSnapshot = await storeRef.collection('productos').get();
     final WriteBatch batch = _db.batch();
-    for (final doc in productosSnapshot.docs) {
+    for (final doc in productsSnapshot.docs) {
       batch.delete(doc.reference);
     }
     await batch.commit();
@@ -81,11 +132,8 @@ class FirestoreService {
             .toList());
   }
 
-  Future<void> upsertProduct({
-    required String tiendaId,
-    String? productoId,
-    required Map<String, dynamic> data,
-  }) {
+  Future<void> upsertProduct(
+      {required String tiendaId, String? productoId, required Map<String, dynamic> data}) {
     final docRef = _db.collection('tiendas').doc(tiendaId).collection('productos').doc(productoId);
     return docRef.set(data, SetOptions(merge: true));
   }
@@ -106,10 +154,7 @@ class FirestoreService {
     return null;
   }
 
-  Future<String> placeOrder({
-    required Pedido pedido,
-    required List<PedidoItem> items,
-  }) {
+  Future<String> placeOrder({required Pedido pedido, required List<PedidoItem> items}) {
     return _db.runTransaction<String>((transaction) async {
       final pedidoRef = _db.collection('pedidos').doc();
       transaction.set(pedidoRef, pedido.toMap());
@@ -121,18 +166,13 @@ class FirestoreService {
     });
   }
 
-  Future<bool> claimOrderAndUpdateStock({
-    required String orderId,
-    required String sellerName,
-    String? sellerZone,
-  }) {
+  Future<bool> claimOrderAndUpdateStock(
+      {required String orderId, required String sellerName, String? sellerZone}) {
     final orderRef = _db.collection('pedidos').doc(orderId);
     return _db.runTransaction<bool>((transaction) async {
       final orderDoc = await transaction.get(orderRef);
       if (!orderDoc.exists) throw Exception("Este pedido ya no existe.");
       if (orderDoc.data()?['status'] != OrderStatus.pagado.name) throw Exception("Este pedido ya fue reclamado.");
-
-      final String tiendaId = orderDoc.data()!['tiendaId'];
 
       transaction.update(orderRef, {
         'status': OrderStatus.en_preparacion.name,
@@ -144,7 +184,51 @@ class FirestoreService {
     });
   }
 
-  // --- MÉTODO RESTAURADO ---
+  Future<void> updateSellerStoreAssignment({
+    required String userId,
+    required String? newStoreId,
+    String? oldStoreId,
+  }) async {
+    final userRef = _db.collection('users').doc(userId);
+
+    if (newStoreId == oldStoreId) return;
+
+    await _db.runTransaction((transaction) async {
+      final userSnapshot = await transaction.get(userRef);
+      if (!userSnapshot.exists) {
+        throw Exception("Error: El usuario a asignar no existe.");
+      }
+      final userData = userSnapshot.data()!;
+
+      if (oldStoreId != null) {
+        final oldSellerRef = _db.collection('tiendas').doc(oldStoreId).collection('vendedores').doc(userId);
+        transaction.delete(oldSellerRef);
+      }
+
+      if (newStoreId != null) {
+        final newSellerRef = _db.collection('tiendas').doc(newStoreId).collection('vendedores').doc(userId);
+        transaction.set(newSellerRef, {
+          'name': userData['name'],
+          'email': userData['email'],
+          'role': userData['role'],
+        });
+      }
+
+      transaction.update(userRef, {'tiendaId': newStoreId, 'deliveryZone': null});
+    });
+  }
+
+  Stream<List<UserModel>> streamSellersForStore(String tiendaId) {
+    return _db
+        .collection('tiendas')
+        .doc(tiendaId)
+        .collection('vendedores')
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => UserModel.fromFirestore(doc.data(), doc.id))
+            .toList());
+  }
+
   Stream<UserModel?> getSellerForStore(String tiendaId) {
     return _db
         .collection('users')
@@ -158,39 +242,17 @@ class FirestoreService {
     });
   }
 
-  Stream<List<UserModel>> streamSellersForStore(String tiendaId) {
-    return _db
-        .collection('users')
-        .where('tiendaId', isEqualTo: tiendaId)
-        .where('role', isEqualTo: 'vendedor')
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => UserModel.fromFirestore(doc.data(), doc.id))
-            .toList());
-  }
-
   Stream<List<UserModel>> streamAllUsers() {
-    return _db.collection('users').snapshots().map((snapshot) => snapshot.docs
-        .map((doc) => UserModel.fromFirestore(doc.data(), doc.id))
-        .toList());
+    return _db.collection('users').snapshots().map((snapshot) =>
+        snapshot.docs.map((doc) => UserModel.fromFirestore(doc.data(), doc.id)).toList());
   }
 
   Future<void> updateUserRole(String userId, UserRole newRole) {
-    return _db.collection('users').doc(userId).update({
-      'role': newRole.name,
-    });
-  }
-
-  Future<void> assignStoreToSeller(String userId, String? storeId) {
-    return _db.collection('users').doc(userId).update({
-      'tiendaId': storeId,
-    });
+    return _db.collection('users').doc(userId).update({'role': newRole.name});
   }
 
   Future<void> assignZoneToSeller(String userId, String? zone) {
-    return _db.collection('users').doc(userId).update({
-      'deliveryZone': zone,
-    });
+    return _db.collection('users').doc(userId).update({'deliveryZone': zone});
   }
 
   Stream<List<Pedido>> streamUserOrders(String userId) {
@@ -199,9 +261,8 @@ class FirestoreService {
         .where('userId', isEqualTo: userId)
         .orderBy('timestamp', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => Pedido.fromMap(doc.data(), doc.id))
-            .toList());
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Pedido.fromMap(doc.data(), doc.id)).toList());
   }
 
   Stream<List<Pedido>> streamActiveUserOrders(String userId) {
@@ -211,13 +272,12 @@ class FirestoreService {
         .where('status', whereIn: [
           OrderStatus.pagado.name,
           OrderStatus.en_preparacion.name,
-          OrderStatus.listo_para_entrega.name,
+          OrderStatus.listo_para_entrega.name
         ])
         .orderBy('timestamp', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => Pedido.fromMap(doc.data(), doc.id))
-            .toList());
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Pedido.fromMap(doc.data(), doc.id)).toList());
   }
 
   Stream<List<PedidoItem>> streamOrderItems(String orderId) {
@@ -226,20 +286,22 @@ class FirestoreService {
         .doc(orderId)
         .collection('items')
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => PedidoItem.fromMap(doc.data()))
-            .toList());
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => PedidoItem.fromMap(doc.data())).toList());
   }
 
   Stream<List<Pedido>> streamPendingOrdersForStore(String tiendaId) {
     return _db
         .collection('pedidos')
         .where('tiendaId', isEqualTo: tiendaId)
-        .where('status', whereIn: [OrderStatus.pagado.name, OrderStatus.en_preparacion.name, OrderStatus.listo_para_entrega.name])
+        .where('status', whereIn: [
+          OrderStatus.pagado.name,
+          OrderStatus.en_preparacion.name,
+          OrderStatus.listo_para_entrega.name
+        ])
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => Pedido.fromMap(doc.data(), doc.id))
-            .toList());
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Pedido.fromMap(doc.data(), doc.id)).toList());
   }
 
   Stream<List<Pedido>> streamDeliveredOrdersForStore(String tiendaId) {
@@ -249,9 +311,8 @@ class FirestoreService {
         .where('status', isEqualTo: OrderStatus.entregado.name)
         .orderBy('timestamp', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => Pedido.fromMap(doc.data(), doc.id))
-            .toList());
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Pedido.fromMap(doc.data(), doc.id)).toList());
   }
 
   Future<void> updateOrderStatus(String orderId, OrderStatus newStatus) {

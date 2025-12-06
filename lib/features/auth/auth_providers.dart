@@ -31,10 +31,17 @@ final userDataProvider = FutureProvider.autoDispose.family<UserModel?, String>((
   return ref.watch(authServiceProvider).getUserData(userId);
 });
 
+// --- PROVIDER CORREGIDO ---
+// Ahora usa el método correcto y seguro que lee desde la sub-colección de la tienda.
 final sellerForStoreProvider = StreamProvider.autoDispose.family<UserModel?, String>((ref, tiendaId) {
   if (tiendaId.isEmpty) {
     return Stream.value(null);
   }
   final firestoreService = ref.watch(firestoreServiceProvider);
-  return firestoreService.getSellerForStore(tiendaId);
+  
+  // Llama al nuevo stream que obtiene una LISTA de vendedores.
+  final sellersStream = firestoreService.streamSellersForStore(tiendaId);
+  
+  // Transforma el stream de List<UserModel> a un stream de UserModel? (el primer vendedor).
+  return sellersStream.map((sellers) => sellers.isNotEmpty ? sellers.first : null);
 });

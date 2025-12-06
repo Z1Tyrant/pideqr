@@ -19,7 +19,8 @@ dependencies:
   firebase_auth: ^5.1.2
   firebase_core: ^3.2.0
   firebase_storage: ^12.1.0
-  firebase_messaging: ^15.0.0 # <-- DEPENDENCIA AÑADIDA
+  firebase_messaging: ^15.0.0
+  cloud_functions: ^5.0.0 # <-- DEPENDENCIA AÑADIDA Y CORREGIDA
 
   # Manejo de Estado
   flutter_riverpod: ^2.5.1
