@@ -270,6 +270,8 @@ class AuthChecker extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authStateChangesProvider);
 
+    
+
     return authState.when(
       loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (error, stack) => Scaffold(body: Center(child: Text('Error de autenticación: $error'))),
@@ -295,4 +297,9 @@ class AuthChecker extends ConsumerWidget {
       },
     );
   }
+<<<<<<< HEAD
 }
+=======
+  
+}
+>>>>>>> e67c6a4c2d11608daba6986e610b080e0246f443
