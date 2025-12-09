@@ -16,8 +16,36 @@ import 'package:pideqr/services/notification_service.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'qr_scanner_screen.dart';
 
-class HomeScreen extends ConsumerWidget {
-  const HomeScreen({super.key});
+// --- HOMESCREEN RESTAURADA --- 
+class HomeScreen extends ConsumerStatefulWidget {
+  final bool paymentJustCompleted;
+  
+  const HomeScreen({super.key, this.paymentJustCompleted = false});
+
+  @override
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.paymentJustCompleted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // Muestra un mensaje de éxito
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('¡Pago exitoso! Tu pedido ha sido registrado.'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 4),
+          ),
+        );
+        // Y luego limpia el carrito
+        ref.read(orderNotifierProvider.notifier).clearCart();
+      });
+    }
+  }
 
   void _navigateToScanner(BuildContext context) {
     Navigator.of(context).push(MaterialPageRoute(builder: (context) => const QRScannerScreen()));
@@ -36,7 +64,7 @@ class HomeScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final userAsync = ref.watch(userModelProvider);
     final activeOrdersAsync = ref.watch(activeUserOrdersProvider);
 
@@ -77,7 +105,7 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-// --- WIDGET DE ESTADO VACÍO CON ANIMACIÓN CORREGIDA ---
+// --- EL RESTO DEL ARCHIVO NO CAMBIA ---
 class _AnimatedEmptyState extends StatefulWidget {
   const _AnimatedEmptyState();
 
@@ -95,7 +123,7 @@ class _AnimatedEmptyStateState extends State<_AnimatedEmptyState> with SingleTic
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800), // <-- ANIMACIÓN MÁS RÁPIDA
+      duration: const Duration(milliseconds: 800),
     )..repeat(reverse: true);
 
     _scaleAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(CurvedAnimation(
@@ -117,7 +145,6 @@ class _AnimatedEmptyStateState extends State<_AnimatedEmptyState> with SingleTic
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // Usamos el color secundario para asegurar contraste en modo oscuro
     final accentColor = theme.colorScheme.secondary;
 
     return Center(
@@ -134,7 +161,6 @@ class _AnimatedEmptyStateState extends State<_AnimatedEmptyState> with SingleTic
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        // <-- COLOR CORREGIDO PARA MEJOR CONTRASTE
                         color: accentColor.withOpacity(0.4),
                         blurRadius: _glowAnimation.value * 2,
                         spreadRadius: _glowAnimation.value,
@@ -148,7 +174,6 @@ class _AnimatedEmptyStateState extends State<_AnimatedEmptyState> with SingleTic
             child: Icon(
               Icons.qr_code_scanner_rounded,
               size: 100,
-              // <-- COLOR CORREGIDO PARA MEJOR CONTRASTE
               color: accentColor,
             ),
           ),
@@ -270,6 +295,8 @@ class AuthChecker extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authStateChangesProvider);
 
+    
+
     return authState.when(
       loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (error, stack) => Scaffold(body: Center(child: Text('Error de autenticación: $error'))),
@@ -295,4 +322,5 @@ class AuthChecker extends ConsumerWidget {
       },
     );
   }
+  
 }

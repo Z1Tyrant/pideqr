@@ -1,42 +1,62 @@
-// lib/features/orders/order_provider.dart
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/models/pedido.dart';
-import '../../core/models/pedido_item.dart';
-import '../../core/models/producto.dart';
-import '../../core/models/user_model.dart';
-import '../../services/firestore_service.dart';
-import '../auth/auth_providers.dart';
-import '../menu/menu_providers.dart'; 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:pideqr/core/models/pedido.dart';
+import 'package:pideqr/core/models/producto.dart';
+import 'package:pideqr/features/auth/auth_providers.dart';
 
-class Carrito { 
-  final List<PedidoItem> items;
+// --- Modelo para un item dentro del carrito ---
+class OrderItem {
+  final String productId;
+  final String productName;
+  final int quantity;
+  final double unitPrice;
+  final double subtotal;
+
+  OrderItem({
+    required this.productId,
+    required this.productName,
+    required this.quantity,
+    required this.unitPrice,
+  }) : subtotal = quantity * unitPrice;
+  
+  Map<String, dynamic> toMap() {
+    return {
+      'productId': productId,
+      'productName': productName,
+      'quantity': quantity,
+      'unitPrice': unitPrice,
+      'subtotal': subtotal,
+    };
+  }
+}
+
+// --- Modelo para el estado del carrito ---
+class OrderState {
+  final List<OrderItem> items;
   final String? currentTiendaId;
+  final double subtotal;
+  final int totalItems;
 
-  Carrito({
-    required this.items,
+  OrderState({
+    this.items = const [],
     this.currentTiendaId,
-  });
+  })  : subtotal = items.fold(0, (sum, item) => sum + item.subtotal),
+        totalItems = items.fold(0, (sum, item) => sum + item.quantity);
 
-  double get subtotal => items.fold(0.0, (sum, item) => sum + item.subtotal);
-  int get totalItems => items.fold(0, (sum, item) => sum + item.quantity);
-
-  Carrito copyWith({
-    List<PedidoItem>? items,
+  OrderState copyWith({
+    List<OrderItem>? items,
     String? currentTiendaId,
   }) {
-    return Carrito(
+    return OrderState(
       items: items ?? this.items,
       currentTiendaId: currentTiendaId ?? this.currentTiendaId,
     );
   }
 }
 
-class OrderNotifier extends Notifier<Carrito> { 
-  @override
-  Carrito build() {
-    return Carrito(items: []);
-  }
+// --- Notifier para manejar la lógica del carrito ---
+class OrderNotifier extends StateNotifier<OrderState> {
+  OrderNotifier() : super(OrderState());
 
   void addItemToCart({
     required Producto producto,
@@ -44,97 +64,110 @@ class OrderNotifier extends Notifier<Carrito> {
     required String tiendaId,
   }) {
     if (state.currentTiendaId != null && state.currentTiendaId != tiendaId) {
-      throw Exception('El carrito ya contiene productos de otra tienda.');
+      throw Exception('Solo puedes añadir productos de una tienda a la vez.');
     }
 
-    final existingIndex = state.items.indexWhere((item) => item.productId == producto.id);
-    final currentQuantityInCart = existingIndex != -1 ? state.items[existingIndex].quantity : 0;
+    final updatedItems = List<OrderItem>.from(state.items);
+    final existingItemIndex = updatedItems.indexWhere((item) => item.productId == producto.id);
 
-    if (currentQuantityInCart + quantity > producto.stock) {
-      throw Exception('No hay suficiente stock. Disponibles: ${producto.stock}');
-    }
+    if (existingItemIndex != -1) {
+      final existingItem = updatedItems[existingItemIndex];
+      final newQuantity = existingItem.quantity + quantity;
 
-    if (existingIndex != -1) {
-      final updatedItems = List<PedidoItem>.from(state.items);
-      final existingItem = updatedItems[existingIndex];
-      final newItem = existingItem.copyWith(quantity: existingItem.quantity + quantity);
-      updatedItems[existingIndex] = newItem;
-      state = state.copyWith(items: updatedItems);
+      if (newQuantity > producto.stock) {
+        throw Exception('No puedes añadir más productos de los que hay en stock.');
+      }
+
+      updatedItems[existingItemIndex] = OrderItem(
+        productId: existingItem.productId,
+        productName: existingItem.productName,
+        quantity: newQuantity,
+        unitPrice: existingItem.unitPrice,
+      );
     } else {
-      final newItem = PedidoItem(
+      if (quantity > producto.stock) {
+        throw Exception('No puedes añadir más productos de los que hay en stock.');
+      }
+      updatedItems.add(OrderItem(
         productId: producto.id,
         productName: producto.name,
-        unitPrice: producto.price,
         quantity: quantity,
-      );
-      state = state.copyWith(
-        items: [...state.items, newItem],
-        currentTiendaId: tiendaId,
-      );
+        unitPrice: producto.price,
+      ));
     }
+    
+    state = state.copyWith(items: updatedItems, currentTiendaId: tiendaId);
   }
 
   void decrementItemQuantity(String productId) {
-    final existingIndex = state.items.indexWhere((item) => item.productId == productId);
-    if (existingIndex == -1) return; 
+    final updatedItems = List<OrderItem>.from(state.items);
+    final itemIndex = updatedItems.indexWhere((item) => item.productId == productId);
 
-    final updatedItems = List<PedidoItem>.from(state.items);
-    final existingItem = updatedItems[existingIndex];
-
-    if (existingItem.quantity > 1) {
-      final newItem = existingItem.copyWith(quantity: existingItem.quantity - 1);
-      updatedItems[existingIndex] = newItem;
-      state = state.copyWith(items: updatedItems);
-    } else {
-      removeItemFromCart(productId);
+    if (itemIndex != -1) {
+      final item = updatedItems[itemIndex];
+      if (item.quantity > 1) {
+        updatedItems[itemIndex] = OrderItem(
+          productId: item.productId,
+          productName: item.productName,
+          quantity: item.quantity - 1,
+          unitPrice: item.unitPrice,
+        );
+      } else {
+        updatedItems.removeAt(itemIndex);
+      }
     }
-  }
 
-  void removeItemFromCart(String productId) {
-    final updatedItems = state.items.where((item) => item.productId != productId).toList();
-    final newTiendaId = updatedItems.isEmpty ? null : state.currentTiendaId;
-    state = state.copyWith(items: updatedItems, currentTiendaId: newTiendaId);
+    state = state.copyWith(items: updatedItems);
   }
 
   void clearCart() {
-    state = Carrito(items: []);
+    state = OrderState();
   }
 }
 
-final orderNotifierProvider = NotifierProvider<OrderNotifier, Carrito>(
-  OrderNotifier.new,
-);
-
-final userOrdersProvider = StreamProvider.autoDispose<List<Pedido>>((ref) {
-  final firestoreService = ref.watch(firestoreServiceProvider);
-  final user = ref.watch(authStateChangesProvider).value;
-
-  if (user != null) {
-    return firestoreService.streamUserOrders(user.uid);
-  }
-  
-  return Stream.value([]);
+// --- Provider para acceder al notificador del carrito ---
+final orderNotifierProvider = StateNotifierProvider<OrderNotifier, OrderState>((ref) {
+  return OrderNotifier();
 });
 
-// --- NUEVO PROVIDER PARA PEDIDOS ACTIVOS DEL CLIENTE ---
+// --- Provider para obtener los pedidos ACTIVOS del usuario ---
 final activeUserOrdersProvider = StreamProvider.autoDispose<List<Pedido>>((ref) {
-  final firestoreService = ref.watch(firestoreServiceProvider);
-  final user = ref.watch(authStateChangesProvider).value;
+  final userId = ref.watch(userModelProvider).value?.uid;
+  if (userId == null) return Stream.value([]);
 
-  if (user != null) {
-    return firestoreService.streamActiveUserOrders(user.uid);
-  }
-
-  return Stream.value([]);
+  return FirebaseFirestore.instance
+      .collection('pedidos')
+      .where('userId', isEqualTo: userId)
+      .where('status', whereNotIn: ['entregado', 'cancelado'])
+      .orderBy('status')
+      .orderBy('timestamp', descending: true)
+      .snapshots()
+      .map((snapshot) => snapshot.docs.map((doc) => Pedido.fromMap(doc.data(), doc.id)).toList());
 });
 
-final pendingOrdersProvider = StreamProvider.autoDispose<List<Pedido>>((ref) {
-  final firestoreService = ref.watch(firestoreServiceProvider);
-  final userModel = ref.watch(userModelProvider).value;
+// --- Provider RECONSTRUIDO para el HISTORIAL de pedidos del usuario ---
+final userOrdersProvider = StreamProvider.autoDispose<List<Pedido>>((ref) {
+  final userId = ref.watch(userModelProvider).value?.uid;
+  if (userId == null) return Stream.value([]);
 
-  if (userModel != null && userModel.role == UserRole.vendedor && userModel.tiendaId != null) {
-    return firestoreService.streamPendingOrdersForStore(userModel.tiendaId!);
-  }
-  
-  return Stream.value([]);
+  return FirebaseFirestore.instance
+      .collection('pedidos')
+      .where('userId', isEqualTo: userId)
+      .orderBy('timestamp', descending: true)
+      .snapshots()
+      .map((snapshot) => snapshot.docs.map((doc) => Pedido.fromMap(doc.data(), doc.id)).toList());
+});
+
+// --- Provider RECONSTRUIDO para los pedidos PENDIENTES del Vendedor ---
+final pendingOrdersProvider = StreamProvider.autoDispose<List<Pedido>>((ref) {
+  final user = ref.watch(userModelProvider).value;
+  if (user == null || user.tiendaId == null) return Stream.value([]);
+
+  return FirebaseFirestore.instance
+      .collection('pedidos')
+      .where('tiendaId', isEqualTo: user.tiendaId)
+      .where('status', whereIn: ['pagado', 'en_preparacion'])
+      .orderBy('timestamp', descending: false)
+      .snapshots()
+      .map((snapshot) => snapshot.docs.map((doc) => Pedido.fromMap(doc.data(), doc.id)).toList());
 });

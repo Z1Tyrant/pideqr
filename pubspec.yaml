@@ -20,7 +20,8 @@ dependencies:
   firebase_core: ^3.2.0
   firebase_storage: ^12.1.0
   firebase_messaging: ^15.0.0
-  cloud_functions: ^5.0.0 # <-- DEPENDENCIA AÑADIDA Y CORREGIDA
+  cloud_functions: ^5.0.0
+  firebase_app_check: ^0.3.0
 
   # Manejo de Estado
   flutter_riverpod: ^2.5.1
@@ -39,6 +40,9 @@ dependencies:
   # Selector de Imágenes
   image_picker: ^1.1.2
 
+  # Pagos
+  webview_flutter: ^4.8.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -49,9 +53,12 @@ dev_dependencies:
 
 flutter_launcher_icons:
   android: true
-  image_path: "assets/icon/foreground.png"
+  image_path: "assets/images/logo.png"
   adaptive_icon_background: "#263238"
-  adaptive_icon_foreground: "assets/icon/foreground.png"
+  adaptive_icon_foreground: "assets/images/logo.png"
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/images/
