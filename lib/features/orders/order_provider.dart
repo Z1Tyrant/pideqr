@@ -21,10 +21,10 @@ class OrderItem {
   
   Map<String, dynamic> toMap() {
     return {
-      'productId': productId,
-      'productName': productName,
+      'product_id': productId,
+      'product_name': productName,
       'quantity': quantity,
-      'unitPrice': unitPrice,
+      'unit_price': unitPrice,
       'subtotal': subtotal,
     };
   }
@@ -137,7 +137,7 @@ final activeUserOrdersProvider = StreamProvider.autoDispose<List<Pedido>>((ref) 
 
   return FirebaseFirestore.instance
       .collection('pedidos')
-      .where('userId', isEqualTo: userId)
+      .where('user_id', isEqualTo: userId)
       .where('status', whereNotIn: ['entregado', 'cancelado'])
       .orderBy('status')
       .orderBy('timestamp', descending: true)
@@ -152,21 +152,21 @@ final userOrdersProvider = StreamProvider.autoDispose<List<Pedido>>((ref) {
 
   return FirebaseFirestore.instance
       .collection('pedidos')
-      .where('userId', isEqualTo: userId)
+      .where('user_id', isEqualTo: userId)
       .orderBy('timestamp', descending: true)
       .snapshots()
       .map((snapshot) => snapshot.docs.map((doc) => Pedido.fromMap(doc.data(), doc.id)).toList());
 });
 
-// --- Provider RECONSTRUIDO para los pedidos PENDIENTES del Vendedor ---
+// --- Provider CORREGIDO para los pedidos PENDIENTES del Vendedor ---
 final pendingOrdersProvider = StreamProvider.autoDispose<List<Pedido>>((ref) {
   final user = ref.watch(userModelProvider).value;
   if (user == null || user.tiendaId == null) return Stream.value([]);
 
   return FirebaseFirestore.instance
       .collection('pedidos')
-      .where('tiendaId', isEqualTo: user.tiendaId)
-      .where('status', whereIn: ['pagado', 'en_preparacion'])
+      .where('tienda_id', isEqualTo: user.tiendaId) // <-- CORREGIDO
+      .where('status', whereIn: ['pagado', 'en_preparacion', 'listo_para_entrega']) 
       .orderBy('timestamp', descending: false)
       .snapshots()
       .map((snapshot) => snapshot.docs.map((doc) => Pedido.fromMap(doc.data(), doc.id)).toList());

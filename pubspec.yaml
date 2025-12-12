@@ -2,7 +2,6 @@ name: pideqr
 description: Una aplicación para ordenar y gestionar pedidos mediante códigos QR, diseñada para optimizar el flujo de trabajo en restaurantes y cafeterías.
 
 version: 1.0.0+1
-author: Miguel Cañete <mi.canete@duocuc.cl>
 homepage: https://github.com/zacion/pideqr
 
 publish_to: 'none'
@@ -22,6 +21,7 @@ dependencies:
   firebase_messaging: ^15.0.0
   cloud_functions: ^5.0.0
   firebase_app_check: ^0.3.0
+  firebase_analytics: ^11.0.0 # <-- PAQUETE AÑADIDO
 
   # Manejo de Estado
   flutter_riverpod: ^2.5.1

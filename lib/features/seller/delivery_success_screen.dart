@@ -13,7 +13,7 @@ class DeliverySuccessScreen extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
+              const Icon(
                 Icons.check_circle_outline_rounded,
                 color: Colors.green,
                 size: 120,

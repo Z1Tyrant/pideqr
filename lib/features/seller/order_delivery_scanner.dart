@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:pideqr/core/models/pedido.dart'; // <-- IMPORTACIÓN AÑADIDA
 import 'package:pideqr/features/menu/menu_providers.dart';
 
 class OrderDeliveryScannerScreen extends ConsumerStatefulWidget {
@@ -32,7 +33,8 @@ class _OrderDeliveryScannerScreenState extends ConsumerState<OrderDeliveryScanne
     if (scannedCode == widget.expectedOrderId) {
       final firestoreService = ref.read(firestoreServiceProvider);
       
-      firestoreService.updateOrderStatus(widget.expectedOrderId, 'entregado').then((_) {
+      // --- CORRECCIÓN: Se usa el enum en lugar del string ---
+      firestoreService.updateOrderStatus(widget.expectedOrderId, OrderStatus.entregado).then((_) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

@@ -6,7 +6,7 @@ class Producto {
   final double price;
   final String description;
   final int stock;
-  final String? imageUrl; // <-- NUEVO CAMPO
+  final String? imageUrl;
 
   Producto({
     required this.id,
@@ -14,7 +14,7 @@ class Producto {
     required this.price,
     required this.description,
     required this.stock,
-    this.imageUrl, // <-- NUEVO CAMPO
+    this.imageUrl,
   });
 
   factory Producto.fromMap(Map<String, dynamic> data, String id) {
@@ -24,7 +24,7 @@ class Producto {
       price: (data['price'] as num?)?.toDouble() ?? 0.0,
       description: data['description'] ?? '',
       stock: data['stock'] as int? ?? 0,
-      imageUrl: data['imageUrl'] as String?, // <-- NUEVO CAMPO
+      imageUrl: data['image_url'] as String?,
     );
   }
 
@@ -34,7 +34,7 @@ class Producto {
       'price': price,
       'description': description,
       'stock': stock,
-      'imageUrl': imageUrl,
+      'image_url': imageUrl,
     };
   }
 }

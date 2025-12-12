@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:dynamic_color/dynamic_color.dart'; // <-- IMPORTACIÓN
+// <-- IMPORTACIÓN
+import 'package:dynamic_color/dynamic_color.dart';
 import 'firebase_options.dart';
 import 'features/auth/auth_checker.dart';
 
@@ -10,6 +11,11 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Activamos App Check para el modo debug
+  // await FirebaseAppCheck.instance.activate(
+  //   androidProvider: AndroidProvider.debug,
+  // );
   
   runApp(const ProviderScope(
     child: PideQRApp(), 

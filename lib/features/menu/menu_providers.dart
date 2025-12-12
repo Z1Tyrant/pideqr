@@ -33,11 +33,20 @@ final tiendaDetailsProvider = StreamProvider.autoDispose.family<Tienda, String>(
   return firestoreService.streamTienda(tiendaId);
 });
 
-// --- PRODUCTOS STREAM PROVIDER CORREGIDO ---
 final productosStreamProvider = StreamProvider.autoDispose.family<List<Producto>, String>((ref, tiendaId) {
   if (tiendaId.isEmpty) {
     return Stream.value([]);
   }
   final firestoreService = ref.watch(firestoreServiceProvider);
   return firestoreService.streamProductosPorTienda(tiendaId);
+});
+
+// --- ¡PROVIDER RESTAURADO! ---
+// Obtiene los detalles de un único producto a partir de los IDs de la tienda y del producto.
+final productDetailsProvider = StreamProvider.autoDispose.family<Producto, ({String tiendaId, String productoId})>((ref, ids) {
+  if (ids.tiendaId.isEmpty || ids.productoId.isEmpty) {
+    return Stream.error('El ID de la tienda y del producto no pueden estar vacíos');
+  }
+  final firestoreService = ref.watch(firestoreServiceProvider);
+  return firestoreService.streamProducto(ids.tiendaId, ids.productoId);
 });

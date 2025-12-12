@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pideqr/core/models/user_model.dart';
-import 'package:pideqr/core/models/tienda.dart';
 import 'package:pideqr/features/admin/admin_providers.dart';
 import 'package:pideqr/features/admin/product_management_screen.dart';
 import 'package:pideqr/features/admin/store_qr_code_screen.dart';

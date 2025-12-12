@@ -9,7 +9,7 @@ class UserModel {
   final UserRole role;
   final String? tiendaId;
   final String? deliveryZone;
-  final List<String> fcmTokens; // <-- NUEVO CAMPO
+  final List<String> fcmTokens;
 
   UserModel({
     required this.uid,
@@ -18,7 +18,7 @@ class UserModel {
     required this.role,
     this.tiendaId,
     this.deliveryZone,
-    this.fcmTokens = const [], // <-- NUEVO CAMPO
+    this.fcmTokens = const [],
   });
 
   static UserRole _roleFromString(String? roleString) {
@@ -38,16 +38,16 @@ class UserModel {
   }
 
   factory UserModel.fromFirestore(Map<String, dynamic> data, String uid) {
-    final tokensFromDb = data['fcmTokens'] as List<dynamic>?;
+    final tokensFromDb = data['fcm_tokens'] as List<dynamic>?;
 
     return UserModel(
       uid: uid,
       email: data['email'] ?? '',
       name: data['name'] ?? 'Usuario PideQR',
       role: _roleFromString(data['role'] as String?),
-      tiendaId: data['tiendaId'] as String?,
-      deliveryZone: data['deliveryZone'] as String?,
-      fcmTokens: tokensFromDb?.map((token) => token as String).toList() ?? [], // <-- NUEVO CAMPO
+      tiendaId: data['tienda_id'] as String?,
+      deliveryZone: data['delivery_zone'] as String?,
+      fcmTokens: tokensFromDb?.map((token) => token as String).toList() ?? [],
     );
   }
 
@@ -56,11 +56,9 @@ class UserModel {
       'email': email,
       'name': name,
       'role': role.name,
-      if (tiendaId != null) 'tiendaId': tiendaId,
-      if (deliveryZone != null) 'deliveryZone': deliveryZone,
-      // Los tokens se gestionan con métodos específicos (add/remove) 
-      // pero lo incluimos aquí para la creación inicial del usuario.
-      'fcmTokens': fcmTokens,
+      if (tiendaId != null) 'tienda_id': tiendaId,
+      if (deliveryZone != null) 'delivery_zone': deliveryZone,
+      'fcm_tokens': fcmTokens,
     };
   }
 }

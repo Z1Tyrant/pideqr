@@ -3,7 +3,7 @@
 class PedidoItem {
   final String productId;
   final String productName;
-  final double unitPrice; // Precio inmutable al momento de la compra
+  final double unitPrice;
   final int quantity;
 
   PedidoItem({
@@ -13,10 +13,8 @@ class PedidoItem {
     required this.quantity,
   });
 
-  // Getters útiles
   double get subtotal => unitPrice * quantity;
 
-  // --- MÉTODO copyWith AÑADIDO ---
   PedidoItem copyWith({
     String? productId,
     String? productName,
@@ -31,7 +29,6 @@ class PedidoItem {
     );
   }
 
-  // Método para convertir el objeto a un mapa para guardarlo en Firestore
   Map<String, dynamic> toMap() {
     return {
       'product_id': productId,
@@ -41,12 +38,20 @@ class PedidoItem {
     };
   }
 
-  // Permite recrear un PedidoItem a partir de un Mapa (por ejemplo, desde la DB)
   factory PedidoItem.fromMap(Map<String, dynamic> data) {
+    final String? foundProductId = data['product_id'];
+
+    if (foundProductId == null || foundProductId.isEmpty) {
+      throw StateError('Error de datos: El ítem del pedido no tiene un ID de producto válido. Datos recibidos: $data');
+    }
+
+    final num foundPrice = data['unit_price'] ?? 0.0;
+    final String foundProductName = data['product_name'] ?? 'Producto Desconocido';
+
     return PedidoItem(
-      productId: data['product_id'] ?? '',
-      productName: data['product_name'] ?? 'Producto Desconocido',
-      unitPrice: (data['unit_price'] as num?)?.toDouble() ?? 0.0,
+      productId: foundProductId,
+      productName: foundProductName,
+      unitPrice: foundPrice.toDouble(),
       quantity: data['quantity'] ?? 0,
     );
   }

@@ -10,6 +10,18 @@ class FirestoreService {
 
   // ... (otros métodos existentes sin cambios) ...
 
+  // --- FUNCIÓN RESTAURADA --- 
+  // Obtiene un producto específico de una tienda.
+  Stream<Producto> streamProducto(String tiendaId, String productoId) {
+    return _db
+        .collection('tiendas')
+        .doc(tiendaId)
+        .collection('productos')
+        .doc(productoId)
+        .snapshots()
+        .map((snapshot) => Producto.fromMap(snapshot.data() ?? {}, snapshot.id));
+  }
+
   // --- NUEVA FUNCIÓN PARA EL MANAGER ---
   Future<void> addSellerToStoreByEmail({
     required String email,
@@ -45,7 +57,7 @@ class FirestoreService {
       // Actualiza el documento principal del usuario
       transaction.update(userRef, {
         'role': UserRole.vendedor.name,
-        'tiendaId': storeId,
+        'tienda_id': storeId,
       });
 
       // Crea la copia del vendedor en la sub-colección de la tienda
@@ -99,25 +111,25 @@ class FirestoreService {
   Future<void> addDeliveryZone(String tiendaId, String zoneName) {
     if (zoneName.trim().isEmpty) return Future.value();
     return _db.collection('tiendas').doc(tiendaId).update({
-      'deliveryZones': FieldValue.arrayUnion([zoneName.trim()])
+      'delivery_zones': FieldValue.arrayUnion([zoneName.trim()])
     });
   }
 
   Future<void> removeDeliveryZone(String tiendaId, String zoneName) {
     return _db.collection('tiendas').doc(tiendaId).update({
-      'deliveryZones': FieldValue.arrayRemove([zoneName])
+      'delivery_zones': FieldValue.arrayRemove([zoneName])
     });
   }
 
   Future<void> addFcmToken({required String userId, required String token}) {
     return _db.collection('users').doc(userId).update({
-      'fcmTokens': FieldValue.arrayUnion([token])
+      'fcm_tokens': FieldValue.arrayUnion([token])
     });
   }
 
   Future<void> removeFcmToken({required String userId, required String token}) {
     return _db.collection('users').doc(userId).update({
-      'fcmTokens': FieldValue.arrayRemove([token])
+      'fcm_tokens': FieldValue.arrayRemove([token])
     });
   }
 
@@ -176,8 +188,8 @@ class FirestoreService {
 
       transaction.update(orderRef, {
         'status': OrderStatus.en_preparacion.name,
-        'preparedBy': sellerName,
-        'deliveryZone': sellerZone,
+        'prepared_by': sellerName,
+        'delivery_zone': sellerZone,
       });
 
       return true;
@@ -214,7 +226,7 @@ class FirestoreService {
         });
       }
 
-      transaction.update(userRef, {'tiendaId': newStoreId, 'deliveryZone': null});
+      transaction.update(userRef, {'tienda_id': newStoreId, 'delivery_zone': null});
     });
   }
 
@@ -232,7 +244,7 @@ class FirestoreService {
   Stream<UserModel?> getSellerForStore(String tiendaId) {
     return _db
         .collection('users')
-        .where('tiendaId', isEqualTo: tiendaId)
+        .where('tienda_id', isEqualTo: tiendaId)
         .where('role', isEqualTo: 'vendedor')
         .limit(1)
         .snapshots()
@@ -252,13 +264,13 @@ class FirestoreService {
   }
 
   Future<void> assignZoneToSeller(String userId, String? zone) {
-    return _db.collection('users').doc(userId).update({'deliveryZone': zone});
+    return _db.collection('users').doc(userId).update({'delivery_zone': zone});
   }
 
   Stream<List<Pedido>> streamUserOrders(String userId) {
     return _db
         .collection('pedidos')
-        .where('userId', isEqualTo: userId)
+        .where('user_id', isEqualTo: userId)
         .orderBy('timestamp', descending: true)
         .snapshots()
         .map((snapshot) =>
@@ -268,7 +280,7 @@ class FirestoreService {
   Stream<List<Pedido>> streamActiveUserOrders(String userId) {
     return _db
         .collection('pedidos')
-        .where('userId', isEqualTo: userId)
+        .where('user_id', isEqualTo: userId)
         .where('status', whereIn: [
           OrderStatus.pagado.name,
           OrderStatus.en_preparacion.name,
@@ -293,7 +305,7 @@ class FirestoreService {
   Stream<List<Pedido>> streamPendingOrdersForStore(String tiendaId) {
     return _db
         .collection('pedidos')
-        .where('tiendaId', isEqualTo: tiendaId)
+        .where('tienda_id', isEqualTo: tiendaId)
         .where('status', whereIn: [
           OrderStatus.pagado.name,
           OrderStatus.en_preparacion.name,
@@ -307,7 +319,7 @@ class FirestoreService {
   Stream<List<Pedido>> streamDeliveredOrdersForStore(String tiendaId) {
     return _db
         .collection('pedidos')
-        .where('tiendaId', isEqualTo: tiendaId)
+        .where('tienda_id', isEqualTo: tiendaId)
         .where('status', isEqualTo: OrderStatus.entregado.name)
         .orderBy('timestamp', descending: true)
         .snapshots()
@@ -318,7 +330,7 @@ class FirestoreService {
   Future<void> updateOrderStatus(String orderId, OrderStatus newStatus) {
     final dataToUpdate = <String, dynamic>{'status': newStatus.name};
     if (newStatus == OrderStatus.entregado) {
-      dataToUpdate['deliveredAt'] = FieldValue.serverTimestamp();
+      dataToUpdate['delivered_at'] = FieldValue.serverTimestamp();
     }
     return _db.collection('pedidos').doc(orderId).update(dataToUpdate);
   }

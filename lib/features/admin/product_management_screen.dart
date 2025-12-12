@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pideqr/core/models/producto.dart';
 import 'package:pideqr/features/admin/edit_product_screen.dart';
 import 'package:pideqr/features/menu/menu_providers.dart';
 

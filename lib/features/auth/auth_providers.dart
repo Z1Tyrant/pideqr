@@ -3,7 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:pideqr/features/menu/menu_providers.dart';
 import '../../services/auth_service.dart';
 import '../../core/models/user_model.dart';
-import '../../services/firestore_service.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) {
   return AuthService();

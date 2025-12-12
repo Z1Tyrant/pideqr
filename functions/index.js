@@ -5,7 +5,7 @@ const {WebpayPlus, Options, Environment} = require("transbank-sdk");
 
 admin.initializeApp();
 
-// --- FUNCIÓN #1: Notificar cuando un pedido está listo ---
+// --- FUNCIÓN #1: Notificar cuando un pedido está listo (CORREGIDA) ---
 exports.notifyOrderReady = onDocumentUpdated("pedidos/{pedidoId}", (event) => {
   const beforeData = event.data.before.data();
   const afterData = event.data.after.data();
@@ -22,9 +22,9 @@ exports.notifyOrderReady = onDocumentUpdated("pedidos/{pedidoId}", (event) => {
   }
   console.log(`Pedido ${event.params.pedidoId} listo. Notificando...`);
 
-  const userId = afterData.userId;
+  const userId = afterData.user_id;
   if (!userId) {
-    console.error("El pedido no tiene un userId asociado.");
+    console.error("El pedido no tiene un user_id asociado.");
     return null;
   }
 
@@ -34,7 +34,7 @@ exports.notifyOrderReady = onDocumentUpdated("pedidos/{pedidoId}", (event) => {
       console.error(`Usuario ${userId} no encontrado.`);
       return null;
     }
-    const fcmTokens = userDoc.data().fcmTokens;
+    const fcmTokens = userDoc.data().fcm_tokens;
     if (!fcmTokens || fcmTokens.length === 0) {
       console.log(`Usuario ${userId} no tiene tokens de FCM.`);
       return null;
@@ -42,7 +42,7 @@ exports.notifyOrderReady = onDocumentUpdated("pedidos/{pedidoId}", (event) => {
     const message = {
       notification: {
         title: "¡Tu pedido está listo! 🎉",
-        body: `Retira en: ${afterData.deliveryZone || "No especificada"}`,
+        body: `Retira en: ${afterData.delivery_zone || "No especificada"}`,
       },
       tokens: fcmTokens,
     };
@@ -51,8 +51,8 @@ exports.notifyOrderReady = onDocumentUpdated("pedidos/{pedidoId}", (event) => {
   });
 });
 
-// --- FUNCIÓN #2: Promover un cliente a vendedor (Invocable) ---
-exports.promoteUserToSeller = onCall(async (request) => {
+// --- FUNCIÓN #2: Promover un cliente a vendedor (CORREGIDA) ---
+exports.promoteUserToSeller = onCall({enforceAppCheck: false}, async (request) => {
   if (!request.auth || !request.auth.uid) {
     throw new HttpsError("unauthenticated", "Debes estar autenticado.");
   }
@@ -65,7 +65,7 @@ exports.promoteUserToSeller = onCall(async (request) => {
     );
   }
   const managerData = callerDoc.data();
-  const storeId = managerData.tiendaId;
+  const storeId = managerData.tienda_id;
   if (!storeId) {
     throw new HttpsError(
         "failed-precondition",
@@ -99,7 +99,7 @@ exports.promoteUserToSeller = onCall(async (request) => {
     await admin.firestore().runTransaction(async (transaction) => {
       transaction.update(userRef, {
         "role": "vendedor",
-        "tiendaId": storeId,
+        "tienda_id": storeId,
       });
       transaction.set(sellerInStoreRef, {
         "name": userToPromoteData.name,
@@ -117,8 +117,8 @@ exports.promoteUserToSeller = onCall(async (request) => {
   };
 });
 
-// --- FUNCIÓN #3: Degradar un vendedor a cliente ---
-exports.demoteSellerToCustomer = onCall(async (request) => {
+// --- FUNCIÓN #3: Degradar un vendedor a cliente (CORREGIDA) ---
+exports.demoteSellerToCustomer = onCall({enforceAppCheck: false}, async (request) => {
   if (!request.auth || !request.auth.uid) {
     throw new HttpsError("unauthenticated", "Debes estar autenticado.");
   }
@@ -131,7 +131,7 @@ exports.demoteSellerToCustomer = onCall(async (request) => {
     );
   }
   const managerData = callerDoc.data();
-  const storeId = managerData.tiendaId;
+  const storeId = managerData.tienda_id;
   if (!storeId) {
     throw new HttpsError(
         "failed-precondition",
@@ -150,7 +150,7 @@ exports.demoteSellerToCustomer = onCall(async (request) => {
     throw new HttpsError("not-found", "El vendedor a eliminar no existe.");
   }
   const userToDemoteData = userToDemoteDoc.data();
-  if (userToDemoteData.tiendaId !== storeId) {
+  if (userToDemoteData.tienda_id !== storeId) {
     throw new HttpsError(
         "permission-denied",
         "Este vendedor no pertenece a tu tienda.",
@@ -160,8 +160,8 @@ exports.demoteSellerToCustomer = onCall(async (request) => {
     await admin.firestore().runTransaction(async (transaction) => {
       transaction.update(userRef, {
         "role": "cliente",
-        "tiendaId": null,
-        "deliveryZone": null,
+        "tienda_id": admin.firestore.FieldValue.delete(),
+        "delivery_zone": admin.firestore.FieldValue.delete(),
       });
       transaction.delete(sellerInStoreRef);
     });
@@ -175,53 +175,73 @@ exports.demoteSellerToCustomer = onCall(async (request) => {
   };
 });
 
-// --- FUNCIÓN DE WEBPAY #1: Crear la transacción ---
-exports.createWebpayTransaction = onCall({appCheck: false}, async (request) => {
-  if (!request.auth) {
-    throw new HttpsError("unauthenticated", "El usuario debe estar autenticado para realizar un pago.");
-  }
+// --- FUNCIÓN DE WEBPAY #1: Crear la transacción (CORREGIDA) ---
+exports.createWebpayTransaction = onCall({enforceAppCheck: false}, async (request) => {
+    console.log("Iniciando creación de transacción.");
 
-  const {tiendaId, buyOrder, amount} = request.data;
-  if (!tiendaId || !buyOrder || !amount || amount <= 0) {
-    throw new HttpsError("invalid-argument", "Los datos del pedido (tiendaId, buyOrder, amount) son inválidos.");
-  }
-
-  try {
-    const credsDoc = await admin.firestore().collection("tiendas").doc(tiendaId).collection("private_credentials").doc("transbank").get();
-
-    if (!credsDoc.exists) {
-      throw new HttpsError("not-found", `No se encontraron credenciales para la tienda: ${tiendaId}`);
+    const {tiendaId, buyOrder, amount} = request.data;
+    if (!tiendaId || !buyOrder || !amount) {
+        throw new HttpsError(
+            "invalid-argument",
+            "Faltan datos para crear la transacción (tiendaId, buyOrder, amount).",
+        );
     }
 
-    const {commerce_code, api_key} = credsDoc.data();
-    if (!commerce_code || !api_key) {
-      throw new HttpsError("data-loss", "Las credenciales de la tienda están incompletas.");
+    if (!request.auth) {
+        throw new HttpsError("unauthenticated", "El usuario debe estar autenticado para iniciar un pago.");
     }
-    
-    console.log(`Intentando crear transacción para tienda ${tiendaId} con código de comercio: ${commerce_code}`);
-    const integerAmount = Math.round(amount);
-    console.log(`Monto original: ${amount}, Monto a enviar (entero): ${integerAmount}`);
 
-    const tx = new WebpayPlus.Transaction(new Options(commerce_code, api_key, Environment.Integration));
-    
-    const sessionId = request.auth.uid; 
-    const returnUrl = "https://pideqr.app/payment_return";
+    try {
+        const credsDoc = await admin.firestore()
+            .collection("tiendas")
+            .doc(tiendaId)
+            .collection("private_credentials")
+            .doc("transbank")
+            .get();
 
-    const response = await tx.create(buyOrder, sessionId, integerAmount, returnUrl);
+        if (!credsDoc.exists) {
+            throw new HttpsError(
+                "not-found",
+                "No se encontraron las credenciales de Transbank para esta tienda.",
+            );
+        }
+        const {commerce_code, api_key} = credsDoc.data();
+        if (!commerce_code || !api_key) {
+            throw new HttpsError("failed-precondition", "Las credenciales de Transbank están incompletas.");
+        }
 
-    return {url: response.url, token: response.token};
-  } catch (error) {
-    console.error("Error al crear la transacción en Transbank:", error);
-    throw new HttpsError("internal", "Ocurrió un error al procesar el pago. Por favor, inténtalo de nuevo.", error.message);
-  }
+        const tx = new WebpayPlus.Transaction(new Options(commerce_code, api_key, Environment.Integration));
+        
+        const returnUrl = "https://pideqr.app/payment_return";
+        const sessionId = request.auth.uid;
+
+        const createResponse = await tx.create(buyOrder, sessionId, amount, returnUrl);
+        
+        console.log("Respuesta de 'create' de Transbank:", createResponse);
+
+        if (!createResponse.token || !createResponse.url) {
+            throw new HttpsError("internal", "La respuesta de Transbank no incluyó un token o una URL.");
+        }
+
+        return {
+            token: createResponse.token,
+            url: createResponse.url,
+        };
+    } catch (error) {
+        console.error("Error al crear la transacción de Webpay:", error);
+        throw new HttpsError(
+            "internal",
+            "Ocurrió un error al conectar con el servicio de pago.",
+            error.message,
+        );
+    }
 });
 
 
-// --- FUNCIÓN DE WEBPAY #2: Confirma la transacción y guarda el pedido ---
-exports.confirmWebpayTransaction = onCall({appCheck: false}, async (request) => {
+// --- FUNCIÓN DE WEBPAY #2: Confirma la transacción y guarda el pedido (CORREGIDA) ---
+exports.confirmWebpayTransaction = onCall({enforceAppCheck: false}, async (request) => {
   console.log("Iniciando confirmación de transacción.");
 
-  // 1. Validar autenticación y datos de entrada
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "El usuario debe estar autenticado.");
   }
@@ -232,63 +252,55 @@ exports.confirmWebpayTransaction = onCall({appCheck: false}, async (request) => 
   }
 
   try {
-    // 2. Obtener credenciales seguras de la tienda
     const credsDoc = await admin.firestore().collection("tiendas").doc(tiendaId).collection("private_credentials").doc("transbank").get();
     if (!credsDoc.exists) {
       throw new HttpsError("not-found", "No se encontraron las credenciales de Transbank para esta tienda.");
     }
     const {commerce_code, api_key} = credsDoc.data();
 
-    // 3. Confirmar la transacción con Transbank
     const tx = new WebpayPlus.Transaction(new Options(commerce_code, api_key, Environment.Integration));
     const commitResponse = await tx.commit(token_ws);
     console.log("Respuesta de commit de Transbank:", commitResponse);
 
-    // 4. Verificar que el pago fue exitoso (status 'AUTHORIZED')
     if (commitResponse.status !== "AUTHORIZED") {
       throw new HttpsError("aborted", `El pago fue rechazado por Transbank. Estado: ${commitResponse.status}`);
     }
 
-    // 5. El pago fue exitoso. Ahora, guardamos el pedido en Firestore.
     console.log("Pago confirmado. Guardando pedido en Firestore.");
     const userId = request.auth.uid;
-
     const pedidoRef = admin.firestore().collection("pedidos").doc();
-    
-    // Iniciar una transacción de Firestore para asegurar consistencia
+
     await admin.firestore().runTransaction(async (transaction) => {
-      // a. Crear el documento del pedido principal
+      // a. Crear el documento del pedido principal con snake_case
       transaction.set(pedidoRef, {
-        userId: userId,
-        tiendaId: tiendaId,
+        user_id: userId,
+        tienda_id: tiendaId,
         total: total,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
-        status: "pagado", // Estado inicial después de un pago exitoso
-        buyOrder: commitResponse.buy_order,
-        paymentDetails: {
-          authorizationCode: commitResponse.authorization_code,
-          paymentTypeCode: commitResponse.payment_type_code,
-          responseCode: commitResponse.response_code,
-          installmentsNumber: commitResponse.installments_number,
+        status: "pagado",
+        buy_order: commitResponse.buy_order,
+        payment_details: {
+          authorization_code: commitResponse.authorization_code,
+          payment_type_code: commitResponse.payment_type_code,
+          response_code: commitResponse.response_code,
+          installments_number: commitResponse.installments_number,
         },
       });
 
-      // b. Crear cada item del pedido en la subcolección 'items'
+      // b. Crear cada item del pedido con snake_case (AHORA CORREGIDO)
       for (const item of items) {
         const itemRef = pedidoRef.collection("items").doc();
         transaction.set(itemRef, {
-          productId: item.productId,
-          productName: item.productName,
+          product_id: item.product_id,
+          product_name: item.product_name,
           quantity: item.quantity,
-          unitPrice: item.unitPrice,
+          unit_price: item.unit_price,
           subtotal: item.subtotal,
         });
       }
     });
 
     console.log(`Pedido ${pedidoRef.id} guardado exitosamente en Firestore.`);
-
-    // 6. Devolver éxito a la app
     return {success: true, pedidoId: pedidoRef.id};
 
   } catch (error) {

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pideqr/features/orders/payment_screen.dart';
 import 'package:pideqr/features/menu/menu_providers.dart';
-import 'package:pideqr/core/models/producto.dart';
 import 'order_provider.dart';
 
 // Screen 1: The Shopping Cart

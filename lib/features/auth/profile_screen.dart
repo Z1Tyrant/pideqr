@@ -14,7 +14,7 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   late final TextEditingController _nameController;
-  bool _isLoading = false;
+  final bool _isLoading = false;
 
   @override
   void initState() {

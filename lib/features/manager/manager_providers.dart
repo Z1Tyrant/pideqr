@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pideqr/core/models/tienda.dart';
 import 'package:pideqr/core/models/user_model.dart';
 import 'package:pideqr/features/auth/auth_providers.dart';
-import 'package:pideqr/services/firestore_service.dart';
 import 'package:pideqr/features/menu/menu_providers.dart'; // <-- IMPORTACIÓN AÑADIDA
 
 // --- PROVIDER CORREGIDO ---

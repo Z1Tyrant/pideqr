@@ -1,7 +1,6 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pideqr/core/models/tienda.dart';
 import 'package:pideqr/core/models/user_model.dart';
 import 'package:pideqr/features/auth/auth_checker.dart';
 import 'package:pideqr/features/auth/auth_providers.dart';
@@ -148,9 +147,9 @@ class _ManagerScreenState extends ConsumerState<ManagerScreen> with SingleTicker
       ),
       body: TabBarView(
         controller: _tabController,
-        children: [
-          const _StoreManagementView(), // Contenido restaurado aquí
-          const _SellersManagementView(),
+        children: const [
+          _StoreManagementView(), // Contenido restaurado aquí
+          _SellersManagementView(),
         ],
       ),
       floatingActionButton: _currentTabIndex == 1
