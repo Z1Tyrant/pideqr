@@ -28,7 +28,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _signIn() async {
     if (!_formKey.currentState!.validate()) return;
-    FocusScope.of(context).unfocus(); // Oculta el teclado
+    FocusScope.of(context).unfocus();
     setState(() => _isLoading = true);
 
     try {
@@ -81,23 +81,37 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.primary, // Fondo azul oscuro
+      backgroundColor: colorScheme.primary,
       body: SafeArea(
         child: Column(
           children: [
-            // --- SECCIÓN SUPERIOR (LOGO) ---
             Expanded(
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 32.0),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Image.asset('assets/images/logo.png', height: 80, width: 80),
-                    const SizedBox(height: 16),
+                    // --- SECCIÓN DEL LOGO MEJORADA ---
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.15),
+                            blurRadius: 15,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: Image.asset('assets/images/logo.png', height: 80, width: 80),
+                    ),
+                    const SizedBox(height: 24),
                     Text(
                       'PideQR',
                       style: textTheme.headlineMedium?.copyWith(
-                        color: colorScheme.onPrimary, // Texto blanco sobre fondo azul
+                        color: colorScheme.onPrimary,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -105,7 +119,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
               ),
             ),
-            // --- TARJETA INFERIOR (FORMULARIO) ---
             Container(
               padding: const EdgeInsets.all(24.0),
               decoration: const BoxDecoration(
