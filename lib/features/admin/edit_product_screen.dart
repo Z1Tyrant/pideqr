@@ -1,10 +1,12 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart'; // <--- LIBRERÍA REINTRODUCIDA
 import 'package:pideqr/core/models/producto.dart';
-import 'package:pideqr/features/admin/image_gallery_screen.dart';
 import 'package:pideqr/features/menu/menu_providers.dart';
+import 'package:pideqr/services/storage_service.dart';
 
-// --- CONTROLADOR ---
+// --- CONTROLADOR (SIN CAMBIOS) ---
 final editProductControllerProvider = NotifierProvider<EditProductController, bool>(EditProductController.new);
 
 class EditProductController extends Notifier<bool> {
@@ -25,15 +27,13 @@ class EditProductController extends Notifier<bool> {
     required Producto? existingProduct,
   }) async {
     final productId = existingProduct?.id ?? ref.read(firestoreServiceProvider).getNewDocumentId('tiendas/$tiendaId/productos');
-
     final productData = {
       'name': name,
       'description': description,
       'price': price,
       'stock': stock,
-      'image_url': imageUrl, 
+      'image_url': imageUrl,
     };
-
     await ref.read(firestoreServiceProvider).upsertProduct(
       tiendaId: tiendaId,
       productoId: productId,
@@ -42,7 +42,7 @@ class EditProductController extends Notifier<bool> {
   }
 }
 
-// --- PANTALLA CONECTADA A LA NUEVA GALERÍA ---
+// --- PANTALLA RECONECTADA A IMAGE_PICKER ---
 class EditProductScreen extends ConsumerStatefulWidget {
   final String tiendaId;
   final Producto? producto;
@@ -59,7 +59,9 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
   late final TextEditingController _descriptionController;
   late final TextEditingController _priceController;
   late final TextEditingController _stockController;
-  String? _selectedImageUrl;
+  
+  XFile? _newImageFile; // Guardará el archivo de la nueva imagen seleccionada
+  String? _existingImageUrl; // Guardará la URL de la imagen que ya tenía el producto
 
   @override
   void initState() {
@@ -68,7 +70,7 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
     _descriptionController = TextEditingController(text: widget.producto?.description ?? '');
     _priceController = TextEditingController(text: widget.producto?.price.toStringAsFixed(0) ?? '');
     _stockController = TextEditingController(text: widget.producto?.stock.toString() ?? '0');
-    _selectedImageUrl = widget.producto?.imageUrl;
+    _existingImageUrl = widget.producto?.imageUrl;
   }
 
   @override
@@ -80,18 +82,19 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
     super.dispose();
   }
 
-  Future<void> _selectImageFromGallery() async {
-    final selectedUrl = await Navigator.of(context).push<String>(
-      MaterialPageRoute(builder: (context) => const ImageGalleryScreen()),
-    );
+  // --- MÉTODO PARA ABRIR LA GALERÍA DEL TELÉFONO ---
+  Future<void> _pickImageFromGallery() async {
+    final picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
 
-    if (selectedUrl != null) {
+    if (image != null) {
       setState(() {
-        _selectedImageUrl = selectedUrl;
+        _newImageFile = image;
       });
     }
   }
 
+  // --- LÓGICA DE GUARDADO FINAL ---
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -101,20 +104,29 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
     ref.read(editProductControllerProvider.notifier).setLoading(true);
 
     try {
+      String? finalImageUrl = _existingImageUrl;
+
+      // 1. Si hay un NUEVO archivo de imagen, súbelo a Storage.
+      if (_newImageFile != null) {
+        final productId = widget.producto?.id ?? ref.read(firestoreServiceProvider).getNewDocumentId('tiendas/${widget.tiendaId}/productos');
+        finalImageUrl = await ref.read(storageServiceProvider).uploadProductImage(
+          image: _newImageFile!,
+          productId: productId,
+        );
+      }
+
+      // 2. Guarda todos los datos en Firestore, usando la URL nueva o la que ya existía.
       await ref.read(editProductControllerProvider.notifier).saveProductData(
         tiendaId: widget.tiendaId,
         name: _nameController.text.trim(),
         description: _descriptionController.text.trim(),
         price: double.tryParse(_priceController.text) ?? 0.0,
         stock: int.tryParse(_stockController.text) ?? 0,
-        imageUrl: _selectedImageUrl,
+        imageUrl: finalImageUrl,
         existingProduct: widget.producto,
       );
 
-      // --- ¡LA SOLUCIÓN! ---
-      // Forzamos la actualización de la lista de productos antes de volver.
       ref.invalidate(productosStreamProvider(widget.tiendaId));
-
       messenger.showSnackBar(
         SnackBar(content: Text('Producto ${widget.producto == null ? "creado" : "actualizado"} con éxito.'), backgroundColor: Colors.green),
       );
@@ -148,18 +160,21 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 GestureDetector(
-                  onTap: _selectImageFromGallery,
+                  onTap: _pickImageFromGallery,
                   child: Container(
                     height: 150,
                     width: double.infinity,
                     decoration: BoxDecoration(
                       color: Colors.grey[300],
                       borderRadius: BorderRadius.circular(12),
-                      image: (_selectedImageUrl != null && _selectedImageUrl!.isNotEmpty)
-                          ? DecorationImage(image: NetworkImage(_selectedImageUrl!), fit: BoxFit.cover)
-                          : null,
+                      // La imagen que se muestra cambia dinámicamente
+                      image: _newImageFile != null
+                          ? DecorationImage(image: FileImage(File(_newImageFile!.path)), fit: BoxFit.cover)
+                          : (_existingImageUrl != null && _existingImageUrl!.isNotEmpty)
+                              ? DecorationImage(image: NetworkImage(_existingImageUrl!), fit: BoxFit.cover)
+                              : null,
                     ),
-                    child: (_selectedImageUrl == null || _selectedImageUrl!.isEmpty)
+                    child: (_newImageFile == null && (_existingImageUrl == null || _existingImageUrl!.isEmpty))
                         ? const Center(child: Icon(Icons.add_a_photo, size: 50, color: Colors.grey))
                         : null,
                   ),
