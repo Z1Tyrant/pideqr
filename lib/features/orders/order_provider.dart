@@ -54,9 +54,19 @@ class OrderState {
   }
 }
 
-// --- Notifier para manejar la lógica del carrito ---
-class OrderNotifier extends StateNotifier<OrderState> {
-  OrderNotifier() : super(OrderState());
+// --- CÓDIGO CORREGIDO PARA LA NUEVA VERSIÓN DE RIVERPOD ---
+
+// 1. El proveedor ahora es un NotifierProvider y usa el constructor .new
+final orderNotifierProvider = NotifierProvider<OrderNotifier, OrderState>(OrderNotifier.new);
+
+// 2. La clase ahora extiende de Notifier
+class OrderNotifier extends Notifier<OrderState> {
+
+  // 3. El estado inicial se define en el método build()
+  @override
+  OrderState build() {
+    return OrderState(); // El estado inicial es un carrito vacío
+  }
 
   void addItemToCart({
     required Producto producto,
@@ -125,12 +135,8 @@ class OrderNotifier extends StateNotifier<OrderState> {
   }
 }
 
-// --- Provider para acceder al notificador del carrito ---
-final orderNotifierProvider = StateNotifierProvider<OrderNotifier, OrderState>((ref) {
-  return OrderNotifier();
-});
+// --- Proveedores de Streams (ya eran compatibles, no requieren cambios) ---
 
-// --- Provider para obtener los pedidos ACTIVOS del usuario ---
 final activeUserOrdersProvider = StreamProvider.autoDispose<List<Pedido>>((ref) {
   final userId = ref.watch(userModelProvider).value?.uid;
   if (userId == null) return Stream.value([]);
@@ -145,7 +151,6 @@ final activeUserOrdersProvider = StreamProvider.autoDispose<List<Pedido>>((ref) 
       .map((snapshot) => snapshot.docs.map((doc) => Pedido.fromMap(doc.data(), doc.id)).toList());
 });
 
-// --- Provider RECONSTRUIDO para el HISTORIAL de pedidos del usuario ---
 final userOrdersProvider = StreamProvider.autoDispose<List<Pedido>>((ref) {
   final userId = ref.watch(userModelProvider).value?.uid;
   if (userId == null) return Stream.value([]);
@@ -158,14 +163,13 @@ final userOrdersProvider = StreamProvider.autoDispose<List<Pedido>>((ref) {
       .map((snapshot) => snapshot.docs.map((doc) => Pedido.fromMap(doc.data(), doc.id)).toList());
 });
 
-// --- Provider CORREGIDO para los pedidos PENDIENTES del Vendedor ---
 final pendingOrdersProvider = StreamProvider.autoDispose<List<Pedido>>((ref) {
   final user = ref.watch(userModelProvider).value;
   if (user == null || user.tiendaId == null) return Stream.value([]);
 
   return FirebaseFirestore.instance
       .collection('pedidos')
-      .where('tienda_id', isEqualTo: user.tiendaId) // <-- CORREGIDO
+      .where('tienda_id', isEqualTo: user.tiendaId)
       .where('status', whereIn: ['pagado', 'en_preparacion', 'listo_para_entrega']) 
       .orderBy('timestamp', descending: false)
       .snapshots()

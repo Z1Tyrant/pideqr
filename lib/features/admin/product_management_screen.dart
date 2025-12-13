@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pideqr/core/models/producto.dart';
 import 'package:pideqr/features/admin/edit_product_screen.dart';
 import 'package:pideqr/features/menu/menu_providers.dart';
 
@@ -12,6 +13,48 @@ class ProductManagementScreen extends ConsumerWidget {
     required this.tiendaId,
     required this.tiendaName,
   });
+
+  // --- MÉTODO PARA MOSTRAR DIÁLOGO DE CONFIRMACIÓN ---
+  Future<void> _showDeleteConfirmationDialog(BuildContext context, WidgetRef ref, Producto producto) async {
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Confirmar Eliminación'),
+          content: Text('¿Estás seguro de que quieres eliminar el producto "${producto.name}"? Esta acción no se puede deshacer.'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancelar'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+            TextButton(
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Eliminar'),
+              onPressed: () async {
+                try {
+                  await ref.read(firestoreServiceProvider).deleteProduct(
+                        tiendaId: tiendaId,
+                        productoId: producto.id,
+                      );
+                  Navigator.of(dialogContext).pop(); // Cierra el diálogo
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Producto eliminado con éxito'), backgroundColor: Colors.green),
+                  );
+                } catch (e) {
+                  Navigator.of(dialogContext).pop(); // Cierra el diálogo
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error al eliminar: $e'), backgroundColor: Colors.red),
+                  );
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -35,17 +78,38 @@ class ProductManagementScreen extends ConsumerWidget {
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: ListTile(
-                  // --- WIDGET DE IMAGEN AÑADIDO ---
-                  leading: producto.imageUrl != null
+                  leading: (producto.imageUrl != null && producto.imageUrl!.isNotEmpty)
                       ? SizedBox(
                           width: 50,
                           height: 50,
-                          child: Image.network(producto.imageUrl!, fit: BoxFit.cover),
+                          child: Image.network(
+                            producto.imageUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              print('Error al cargar la imagen: $error');
+                              return const Icon(Icons.broken_image, color: Colors.red);
+                            },
+                          ),
                         )
-                      : const SizedBox(width: 50, height: 50, child: Icon(Icons.image_not_supported)),
+                      : const SizedBox(
+                          width: 50,
+                          height: 50,
+                          child: Icon(Icons.image_not_supported),
+                        ),
                   title: Text(producto.name),
                   subtitle: Text('Stock: ${producto.stock}'),
-                  trailing: Text('\$${producto.price.toStringAsFixed(0)}'),
+                  // --- BOTÓN DE ELIMINAR AÑADIDO ---
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('\$${producto.price.toStringAsFixed(0)}'),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                        onPressed: () => _showDeleteConfirmationDialog(context, ref, producto),
+                        tooltip: 'Eliminar Producto',
+                      ),
+                    ],
+                  ),
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(

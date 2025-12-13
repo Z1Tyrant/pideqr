@@ -4,8 +4,47 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:pideqr/core/models/producto.dart';
 import 'package:pideqr/features/menu/menu_providers.dart';
-import 'package:pideqr/services/storage_service.dart'; // <-- NUEVA IMPORTACIÓN
+import 'package:pideqr/services/storage_service.dart';
 
+// --- CONTROLADOR (SIMPLIFICADO) ---
+final editProductControllerProvider = NotifierProvider<EditProductController, bool>(EditProductController.new);
+
+class EditProductController extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void setLoading(bool isLoading) {
+    state = isLoading;
+  }
+
+  Future<void> saveProductData({
+    required String tiendaId,
+    required String name,
+    required String description,
+    required double price,
+    required int stock,
+    required String? imageUrl,
+    required Producto? existingProduct,
+  }) async {
+    final productId = existingProduct?.id ?? ref.read(firestoreServiceProvider).getNewDocumentId('tiendas/$tiendaId/productos');
+
+    final productData = {
+      'name': name,
+      'description': description,
+      'price': price,
+      'stock': stock,
+      'imageUrl': imageUrl,
+    };
+
+    await ref.read(firestoreServiceProvider).upsertProduct(
+      tiendaId: tiendaId,
+      productoId: productId,
+      data: productData,
+    );
+  }
+}
+
+// --- PANTALLA CON LA UI DE IMAGEN RESTAURADA ---
 class EditProductScreen extends ConsumerStatefulWidget {
   final String tiendaId;
   final Producto? producto;
@@ -22,8 +61,7 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
   late final TextEditingController _descriptionController;
   late final TextEditingController _priceController;
   late final TextEditingController _stockController;
-  XFile? _imageFile; // <-- Variable para la nueva imagen seleccionada
-  bool _isLoading = false;
+  XFile? _imageFile;
 
   @override
   void initState() {
@@ -53,104 +91,143 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
     }
   }
 
-  Future<void> _saveProduct() async {
+  Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() => _isLoading = true);
+
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
+    ref.read(editProductControllerProvider.notifier).setLoading(true);
 
     try {
-      String? imageUrl = widget.producto?.imageUrl;
+      String? finalImageUrl = widget.producto?.imageUrl;
 
-      // 1. Si se seleccionó una nueva imagen, subirla
       if (_imageFile != null) {
-        final productId = widget.producto?.id ?? ref.read(firestoreServiceProvider).getNewDocumentId('tiendas/${widget.tiendaId}/productos');
-        imageUrl = await ref.read(storageServiceProvider).uploadProductImage(
+        // La UI no necesita saber CÓMO se sube, solo que el servicio lo hace.
+        finalImageUrl = await ref.read(storageServiceProvider).uploadProductImage(
           image: _imageFile!,
-          productId: productId,
+          productId: widget.producto?.id ?? ref.read(firestoreServiceProvider).getNewDocumentId('tiendas/${widget.tiendaId}/productos'),
         );
       }
 
-      // 2. Preparar los datos del producto
-      final productData = {
-        'name': _nameController.text.trim(),
-        'description': _descriptionController.text.trim(),
-        'price': double.tryParse(_priceController.text) ?? 0.0,
-        'stock': int.tryParse(_stockController.text) ?? 0,
-        'imageUrl': imageUrl,
-      };
-
-      // 3. Guardar en Firestore
-      await ref.read(firestoreServiceProvider).upsertProduct(
+      await ref.read(editProductControllerProvider.notifier).saveProductData(
         tiendaId: widget.tiendaId,
-        productoId: widget.producto?.id,
-        data: productData,
+        name: _nameController.text.trim(),
+        description: _descriptionController.text.trim(),
+        price: double.tryParse(_priceController.text) ?? 0.0,
+        stock: int.tryParse(_stockController.text) ?? 0,
+        imageUrl: finalImageUrl,
+        existingProduct: widget.producto,
       );
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Producto ${widget.producto == null ? "creado" : "actualizado"} con éxito.')),
-        );
-        Navigator.of(context).pop();
-      }
+      messenger.showSnackBar(
+        SnackBar(content: Text('Producto ${widget.producto == null ? "creado" : "actualizado"} con éxito.'), backgroundColor: Colors.green),
+      );
+      navigator.pop();
+
     } catch (e) {
-      // ... (manejo de errores)
+      messenger.showSnackBar(
+        SnackBar(content: Text('Error al guardar: ${e.toString()}'), backgroundColor: Colors.red),
+      );
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      ref.read(editProductControllerProvider.notifier).setLoading(false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.producto != null;
+    final isLoading = ref.watch(editProductControllerProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(isEditing ? 'Editar Producto' : 'Nuevo Producto'),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              // --- SECCIÓN DE IMAGEN ---
-              GestureDetector(
-                onTap: _pickImage,
-                child: Container(
-                  height: 150,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(12),
-                    image: _imageFile != null 
-                        ? DecorationImage(image: FileImage(File(_imageFile!.path)), fit: BoxFit.cover)
-                        : (widget.producto?.imageUrl != null 
-                            ? DecorationImage(image: NetworkImage(widget.producto!.imageUrl!), fit: BoxFit.cover) 
-                            : null),
+      body: IgnorePointer(
+        ignoring: isLoading,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                GestureDetector(
+                  onTap: _pickImage,
+                  child: Container(
+                    height: 150,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(12),
+                      image: _imageFile != null
+                          ? DecorationImage(image: FileImage(File(_imageFile!.path)), fit: BoxFit.cover)
+                          : (widget.producto?.imageUrl != null && widget.producto!.imageUrl!.isNotEmpty
+                              ? DecorationImage(image: NetworkImage(widget.producto!.imageUrl!), fit: BoxFit.cover)
+                              : null),
+                    ),
+                    child: _imageFile == null && (widget.producto?.imageUrl == null || widget.producto!.imageUrl!.isEmpty)
+                        ? const Center(child: Icon(Icons.add_a_photo, size: 50, color: Colors.grey))
+                        : null,
                   ),
-                  child: _imageFile == null && widget.producto?.imageUrl == null 
-                      ? const Center(child: Icon(Icons.add_a_photo, size: 50, color: Colors.grey)) 
-                      : null,
                 ),
-              ),
-              const SizedBox(height: 24),
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Nombre'),
-              ),
-              // ... (resto de los campos de texto)
-            ],
+                const SizedBox(height: 24),
+                TextFormField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(labelText: 'Nombre'),
+                  validator: (value) => (value == null || value.isEmpty) ? 'Ingresa un nombre' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _descriptionController,
+                  decoration: const InputDecoration(labelText: 'Descripción'),
+                  validator: (value) => (value == null || value.isEmpty) ? 'Ingresa una descripción' : null,
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _priceController,
+                        decoration: const InputDecoration(labelText: 'Precio', prefixText: 'CLP \$'),
+                        keyboardType: TextInputType.number,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) return 'Ingresa un precio';
+                          if (double.tryParse(value) == null) return 'Precio inválido';
+                          return null;
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _stockController,
+                        decoration: const InputDecoration(labelText: 'Stock'),
+                        keyboardType: TextInputType.number,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) return 'Ingresa el stock';
+                          if (int.tryParse(value) == null) return 'Stock inválido';
+                          return null;
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: _isLoading
+          child: isLoading
               ? const Center(child: CircularProgressIndicator())
               : ElevatedButton.icon(
                   icon: const Icon(Icons.save),
                   label: const Text('Guardar Cambios'),
-                  onPressed: _saveProduct,
+                  onPressed: _save,
+                  style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
                 ),
         ),
       ),

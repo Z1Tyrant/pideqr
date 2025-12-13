@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
-// <-- IMPORTACIÓN
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'firebase_options.dart';
 import 'features/auth/auth_checker.dart';
@@ -12,9 +12,10 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Activamos App Check para el modo debug
+  // App Check desactivado para evitar el envío de tokens inválidos en modo debug
   // await FirebaseAppCheck.instance.activate(
   //   androidProvider: AndroidProvider.debug,
+  //   appleProvider: AppleProvider.debug,
   // );
   
   runApp(const ProviderScope(

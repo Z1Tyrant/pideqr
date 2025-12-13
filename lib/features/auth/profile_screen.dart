@@ -14,7 +14,7 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   late final TextEditingController _nameController;
-  final bool _isLoading = false;
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -29,16 +29,83 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _updateName() async {
-    // ... (lógica existente sin cambios)
+    FocusScope.of(context).unfocus();
+
+    final newName = _nameController.text.trim();
+    if (newName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('El nombre no puede estar vacío.'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    final user = ref.read(userModelProvider).value;
+    if (user == null) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      await ref.read(firestoreServiceProvider).updateUserName(user.uid, newName);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('¡Nombre actualizado con éxito!'), backgroundColor: Colors.green),
+        );
+        ref.invalidate(userModelProvider);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al actualizar el nombre: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   Future<void> _sendPasswordReset() async {
-    // ... (lógica existente sin cambios)
+    final userEmail = ref.read(userModelProvider).value?.email;
+
+    if (userEmail == null || userEmail.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo encontrar tu correo electrónico.'), backgroundColor: Colors.red),
+        );
+      return;
+    }
+
+    try {
+      await ref.read(authServiceProvider).sendPasswordResetEmail(userEmail);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Se ha enviado un correo para reestablecer tu contraseña.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al enviar el correo: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final userModelAsync = ref.watch(userModelProvider);
+
+    ref.listen(userModelProvider, (previous, next) {
+      final newName = next.value?.name;
+      if (newName != null && _nameController.text != newName) {
+        _nameController.text = newName;
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(title: const Text('Mi Perfil')),
@@ -56,7 +123,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               children: [
                 _buildProfileInfoCard(userModel),
                 const SizedBox(height: 24),
-                // --- NUEVA SECCIÓN PARA VENDEDORES ---
                 if (userModel.role == UserRole.vendedor && userModel.tiendaId != null)
                   _buildSellerAssignmentCard(userModel),
                 const SizedBox(height: 24),
@@ -107,6 +173,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             TextField(
               controller: _nameController,
               decoration: const InputDecoration(hintText: 'Tu nombre o apodo'),
+              enabled: !_isLoading, // Deshabilita el campo mientras se guarda
             ),
           ],
         ),
@@ -114,7 +181,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  // --- WIDGET PARA LA NUEVA SECCIÓN DE VENDEDOR ---
   Widget _buildSellerAssignmentCard(UserModel userModel) {
     final tiendaId = userModel.tiendaId!;
     final assignedZone = userModel.deliveryZone;

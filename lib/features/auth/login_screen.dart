@@ -27,7 +27,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _signIn() async {
-    // Valida que el formulario esté correcto
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
@@ -37,7 +36,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-      // La navegación al home la gestiona el AuthChecker, no necesitamos hacer nada aquí.
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       final errorMessage = ErrorTranslator.getFriendlyMessage(e);
@@ -92,15 +90,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
                 const SizedBox(height: 60),
-                // 1. Logo
-                const FlutterLogo(size: 80), // Placeholder para tu logo
+                const FlutterLogo(size: 80),
                 const SizedBox(height: 16),
                 Text('Bienvenido a PideQR', style: textTheme.headlineMedium, textAlign: TextAlign.center),
                 Text('Inicia sesión para continuar', style: textTheme.bodyLarge, textAlign: TextAlign.center),
                 const SizedBox(height: 48),
 
-                // 2. Campo de Correo
                 TextFormField(
+                  key: const Key('loginEmailField'), // <-- KEY AÑADIDA
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
@@ -113,8 +110,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 const SizedBox(height: 16.0),
 
-                // 3. Campo de Contraseña
                 TextFormField(
+                  key: const Key('loginPasswordField'), // <-- KEY AÑADIDA
                   controller: _passwordController,
                   obscureText: !_isPasswordVisible,
                   decoration: InputDecoration(
@@ -131,7 +128,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 const SizedBox(height: 16.0),
 
-                // 4. Botón Olvidé Contraseña
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
@@ -141,7 +137,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 const SizedBox(height: 24.0),
 
-                // 5. Botón de Iniciar Sesión
                 _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : ElevatedButton(
@@ -154,7 +149,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                 const SizedBox(height: 48.0),
                 
-                // 6. Botón de Registro
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

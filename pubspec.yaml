@@ -14,42 +14,46 @@ dependencies:
     sdk: flutter
 
   # Firebase
-  cloud_firestore: ^5.1.0
-  firebase_auth: ^5.1.2
-  firebase_core: ^3.2.0
-  firebase_storage: ^12.1.0
-  firebase_messaging: ^15.0.0
-  cloud_functions: ^5.0.0
-  firebase_app_check: ^0.3.0
-  firebase_analytics: ^11.0.0 # <-- PAQUETE AÑADIDO
+  cloud_firestore: any
+  firebase_auth: any
+  firebase_core: any
+  firebase_storage: any
+  firebase_messaging: any
+  cloud_functions: any
+  firebase_app_check: any
+  firebase_analytics: any
 
   # Manejo de Estado
-  flutter_riverpod: ^2.5.1
+  flutter_riverpod: any
 
   # Utilidades de UI y QR
-  mobile_scanner: ^5.1.1
-  qr_flutter: ^4.1.0
-  dynamic_color: ^1.8.0
-  intl: ^0.19.0
-  cupertino_icons: ^1.0.8
+  mobile_scanner: any
+  qr_flutter: any
+  dynamic_color: any
+  intl: any
+  cupertino_icons: any
 
   # Impresión y PDF
-  printing: ^5.12.0
-  pdf: ^3.10.8
+  printing: any
+  pdf: any
 
-  # Selector de Imágenes
-  image_picker: ^1.1.2
+  # Selector de Imágenes y Peticiones HTTP
+  image_picker: any
+  http: any
 
   # Pagos
-  webview_flutter: ^4.8.0
+  webview_flutter: any
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   
-  flutter_lints: ^4.0.0
+  integration_test: # <-- DEPENDENCIA AÑADIDA
+    sdk: flutter
 
-  flutter_launcher_icons: ^0.13.1
+  flutter_lints: any
+
+  flutter_launcher_icons: any
 
 flutter_launcher_icons:
   android: true

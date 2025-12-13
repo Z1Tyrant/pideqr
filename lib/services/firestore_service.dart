@@ -22,6 +22,16 @@ class FirestoreService {
         .map((snapshot) => Producto.fromMap(snapshot.data() ?? {}, snapshot.id));
   }
 
+  // --- NUEVA FUNCIÓN PARA ELIMINAR PRODUCTOS ---
+  Future<void> deleteProduct({required String tiendaId, required String productoId}) {
+    return _db
+        .collection('tiendas')
+        .doc(tiendaId)
+        .collection('productos')
+        .doc(productoId)
+        .delete();
+  }
+
   // --- NUEVA FUNCIÓN PARA EL MANAGER ---
   Future<void> addSellerToStoreByEmail({
     required String email,
