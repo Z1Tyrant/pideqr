@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:pideqr/core/models/producto.dart';
 import 'package:pideqr/features/admin/edit_product_screen.dart';
 import 'package:pideqr/features/menu/menu_providers.dart';
@@ -14,20 +15,17 @@ class ProductManagementScreen extends ConsumerWidget {
     required this.tiendaName,
   });
 
-  // --- MÉTODO PARA MOSTRAR DIÁLOGO DE CONFIRMACIÓN ---
   Future<void> _showDeleteConfirmationDialog(BuildContext context, WidgetRef ref, Producto producto) async {
     return showDialog<void>(
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: const Text('Confirmar Eliminación'),
-          content: Text('¿Estás seguro de que quieres eliminar el producto "${producto.name}"? Esta acción no se puede deshacer.'),
+          content: Text('¿Estás seguro de que quieres eliminar el producto "${producto.name}"?'),
           actions: <Widget>[
             TextButton(
               child: const Text('Cancelar'),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
+              onPressed: () => Navigator.of(dialogContext).pop(),
             ),
             TextButton(
               style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -38,12 +36,12 @@ class ProductManagementScreen extends ConsumerWidget {
                         tiendaId: tiendaId,
                         productoId: producto.id,
                       );
-                  Navigator.of(dialogContext).pop(); // Cierra el diálogo
+                  Navigator.of(dialogContext).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Producto eliminado con éxito'), backgroundColor: Colors.green),
+                    const SnackBar(content: Text('Producto eliminado'), backgroundColor: Colors.green),
                   );
                 } catch (e) {
-                  Navigator.of(dialogContext).pop(); // Cierra el diálogo
+                  Navigator.of(dialogContext).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Error al eliminar: $e'), backgroundColor: Colors.red),
                   );
@@ -82,13 +80,14 @@ class ProductManagementScreen extends ConsumerWidget {
                       ? SizedBox(
                           width: 50,
                           height: 50,
-                          child: Image.network(
-                            producto.imageUrl!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              print('Error al cargar la imagen: $error');
-                              return const Icon(Icons.broken_image, color: Colors.red);
-                            },
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8.0),
+                            child: CachedNetworkImage(
+                              imageUrl: producto.imageUrl!,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => const Center(child: CircularProgressIndicator(strokeWidth: 2.0)),
+                              errorWidget: (context, url, error) => const Icon(Icons.broken_image, color: Colors.red),
+                            ),
                           ),
                         )
                       : const SizedBox(
@@ -98,7 +97,6 @@ class ProductManagementScreen extends ConsumerWidget {
                         ),
                   title: Text(producto.name),
                   subtitle: Text('Stock: ${producto.stock}'),
-                  // --- BOTÓN DE ELIMINAR AÑADIDO ---
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [

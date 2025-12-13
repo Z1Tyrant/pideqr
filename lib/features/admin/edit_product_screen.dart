@@ -1,12 +1,10 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:pideqr/core/models/producto.dart';
+import 'package:pideqr/features/admin/image_gallery_screen.dart';
 import 'package:pideqr/features/menu/menu_providers.dart';
-import 'package:pideqr/services/storage_service.dart';
 
-// --- CONTROLADOR (SIMPLIFICADO) ---
+// --- CONTROLADOR ---
 final editProductControllerProvider = NotifierProvider<EditProductController, bool>(EditProductController.new);
 
 class EditProductController extends Notifier<bool> {
@@ -33,7 +31,7 @@ class EditProductController extends Notifier<bool> {
       'description': description,
       'price': price,
       'stock': stock,
-      'imageUrl': imageUrl,
+      'image_url': imageUrl, 
     };
 
     await ref.read(firestoreServiceProvider).upsertProduct(
@@ -44,7 +42,7 @@ class EditProductController extends Notifier<bool> {
   }
 }
 
-// --- PANTALLA CON LA UI DE IMAGEN RESTAURADA ---
+// --- PANTALLA CONECTADA A LA NUEVA GALERÍA ---
 class EditProductScreen extends ConsumerStatefulWidget {
   final String tiendaId;
   final Producto? producto;
@@ -61,7 +59,7 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
   late final TextEditingController _descriptionController;
   late final TextEditingController _priceController;
   late final TextEditingController _stockController;
-  XFile? _imageFile;
+  String? _selectedImageUrl;
 
   @override
   void initState() {
@@ -70,6 +68,7 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
     _descriptionController = TextEditingController(text: widget.producto?.description ?? '');
     _priceController = TextEditingController(text: widget.producto?.price.toStringAsFixed(0) ?? '');
     _stockController = TextEditingController(text: widget.producto?.stock.toString() ?? '0');
+    _selectedImageUrl = widget.producto?.imageUrl;
   }
 
   @override
@@ -81,12 +80,14 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
-    if (image != null) {
+  Future<void> _selectImageFromGallery() async {
+    final selectedUrl = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (context) => const ImageGalleryScreen()),
+    );
+
+    if (selectedUrl != null) {
       setState(() {
-        _imageFile = image;
+        _selectedImageUrl = selectedUrl;
       });
     }
   }
@@ -100,25 +101,19 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
     ref.read(editProductControllerProvider.notifier).setLoading(true);
 
     try {
-      String? finalImageUrl = widget.producto?.imageUrl;
-
-      if (_imageFile != null) {
-        // La UI no necesita saber CÓMO se sube, solo que el servicio lo hace.
-        finalImageUrl = await ref.read(storageServiceProvider).uploadProductImage(
-          image: _imageFile!,
-          productId: widget.producto?.id ?? ref.read(firestoreServiceProvider).getNewDocumentId('tiendas/${widget.tiendaId}/productos'),
-        );
-      }
-
       await ref.read(editProductControllerProvider.notifier).saveProductData(
         tiendaId: widget.tiendaId,
         name: _nameController.text.trim(),
         description: _descriptionController.text.trim(),
         price: double.tryParse(_priceController.text) ?? 0.0,
         stock: int.tryParse(_stockController.text) ?? 0,
-        imageUrl: finalImageUrl,
+        imageUrl: _selectedImageUrl,
         existingProduct: widget.producto,
       );
+
+      // --- ¡LA SOLUCIÓN! ---
+      // Forzamos la actualización de la lista de productos antes de volver.
+      ref.invalidate(productosStreamProvider(widget.tiendaId));
 
       messenger.showSnackBar(
         SnackBar(content: Text('Producto ${widget.producto == null ? "creado" : "actualizado"} con éxito.'), backgroundColor: Colors.green),
@@ -153,20 +148,18 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 GestureDetector(
-                  onTap: _pickImage,
+                  onTap: _selectImageFromGallery,
                   child: Container(
                     height: 150,
                     width: double.infinity,
                     decoration: BoxDecoration(
                       color: Colors.grey[300],
                       borderRadius: BorderRadius.circular(12),
-                      image: _imageFile != null
-                          ? DecorationImage(image: FileImage(File(_imageFile!.path)), fit: BoxFit.cover)
-                          : (widget.producto?.imageUrl != null && widget.producto!.imageUrl!.isNotEmpty
-                              ? DecorationImage(image: NetworkImage(widget.producto!.imageUrl!), fit: BoxFit.cover)
-                              : null),
+                      image: (_selectedImageUrl != null && _selectedImageUrl!.isNotEmpty)
+                          ? DecorationImage(image: NetworkImage(_selectedImageUrl!), fit: BoxFit.cover)
+                          : null,
                     ),
-                    child: _imageFile == null && (widget.producto?.imageUrl == null || widget.producto!.imageUrl!.isEmpty)
+                    child: (_selectedImageUrl == null || _selectedImageUrl!.isEmpty)
                         ? const Center(child: Icon(Icons.add_a_photo, size: 50, color: Colors.grey))
                         : null,
                   ),

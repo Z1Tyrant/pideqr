@@ -37,9 +37,10 @@ dependencies:
   printing: any
   pdf: any
 
-  # Selector de Imágenes y Peticiones HTTP
+  # Utilidades de Imagen
   image_picker: any
   http: any
+  cached_network_image: any # <-- DEPENDENCIA AÑADIDA
 
   # Pagos
   webview_flutter: any
@@ -48,7 +49,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   
-  integration_test: # <-- DEPENDENCIA AÑADIDA
+  integration_test: 
     sdk: flutter
 
   flutter_lints: any
